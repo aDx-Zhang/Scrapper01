@@ -1,0 +1,159 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('monitor') }}">Monitor</a></li>
+            <li class="breadcrumb-item active">{{ item.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h2>{{ item.title }}</h2>
+                    <div class="d-flex justify-content-between align-items-start mb-4">
+                        <div>
+                            <h3 class="text-primary">{{ item.price }} {{ item.currency }}</h3>
+                            {% if item.price_changed %}
+                            <p class="text-muted">Previous price: {{ item.previous_price }} {{ item.currency }}</p>
+                            {% endif %}
+                        </div>
+                        <a href="{{ item.url }}" target="_blank" class="btn btn-primary">
+                            <i class="bi bi-box-arrow-up-right me-2"></i>View on {{ item.marketplace }}
+                        </a>
+                    </div>
+
+                    {% if item.image_url %}
+                    <img src="{{ item.image_url }}" alt="{{ item.title }}" class="img-fluid mb-4">
+                    {% endif %}
+
+                    <h4>Description</h4>
+                    <p>{{ item.description }}</p>
+
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h4>Product Details</h4>
+                            <table class="table">
+                                <tr>
+                                    <th>Location:</th>
+                                    <td>{{ item.location }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Condition:</th>
+                                    <td>{{ item.condition }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Seller:</th>
+                                    <td>{{ item.seller_name }}</td>
+                                </tr>
+                                {% if item.seller_rating %}
+                                <tr>
+                                    <th>Seller Rating:</th>
+                                    <td>{{ item.seller_rating }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h4>Monitoring Details</h4>
+                            <table class="table">
+                                <tr>
+                                    <th>Started Monitoring:</th>
+                                    <td>{{ item.found_at|datetime }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Last Update:</th>
+                                    <td>{{ item.monitor.last_run|datetime }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Next Update:</th>
+                                    <td id="next-update-counter">
+                                        {{ item.monitor.last_run|next_update(item.monitor.interval_minutes) }}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Current Time:</th>
+                                    <td id="current-time">Loading...</td>
+                                </tr>
+                                <tr>
+                                    <th>Update Interval:</th>
+                                    <td>Every {{ item.monitor.interval_minutes }} minutes</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Price History</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Add price history chart here -->
+                    <p class="text-muted">Price history visualization coming soon</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Notifications</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for notification in notifications %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ notification.title }}</h6>
+                                <small>{{ notification.created_at|datetime }}</small>
+                            </div>
+                            <p class="mb-1">{{ notification.message }}</p>
+                        </div>
+                        {% else %}
+                        <p class="text-muted text-center mb-0">No notifications yet</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateTime() {
+    // Update current time
+    const now = new Date();
+    document.getElementById('current-time').textContent = now.toLocaleString();
+
+    // Calculate next update time
+    const lastRun = new Date("{{ item.monitor.last_run|datetime if item.monitor.last_run else '' }}");
+    const intervalMinutes = {{ item.monitor.interval_minutes }};
+    
+    if (lastRun && !isNaN(lastRun)) {
+        const nextUpdate = new Date(lastRun.getTime() + (intervalMinutes * 60 * 1000));
+        const timeUntil = nextUpdate - now;
+        
+        if (timeUntil > 0) {
+            const minutes = Math.floor(timeUntil / (60 * 1000));
+            const seconds = Math.floor((timeUntil % (60 * 1000)) / 1000);
+            document.getElementById('next-update-counter').textContent = 
+                `In ${minutes}m ${seconds}s (${nextUpdate.toLocaleString()})`;
+        } else {
+            document.getElementById('next-update-counter').textContent = 'Updating soon...';
+        }
+    } else {
+        document.getElementById('next-update-counter').textContent = 'Not scheduled';
+    }
+}
+
+// Update immediately and then every second
+updateTime();
+setInterval(updateTime, 1000);
+</script>
+{% endblock %}

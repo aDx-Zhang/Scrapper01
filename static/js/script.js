@@ -2,19 +2,56 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Polish Marketplace Scraper initialized');
-    
+
+    // Handle "Add to Monitor" buttons
+    document.addEventListener('click', function(e) {
+        const button = e.target.closest('.add-to-monitor');
+        if (button) {
+            const itemData = {
+                url: button.dataset.url,
+                title: button.dataset.title,
+                price: parseFloat(button.dataset.price),
+                currency: button.dataset.currency,
+                marketplace: button.dataset.marketplace,
+                location: button.dataset.location
+            };
+
+            fetch('/monitor/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(itemData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Item added to monitor successfully!');
+                    e.target.disabled = true;
+                    e.target.textContent = 'Added to Monitor';
+                } else {
+                    alert('Failed to add item to monitor: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error adding item to monitor');
+            });
+        }
+    });
+
     // Initialize tooltips
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
-    
+
     // Initialize popovers
     const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
     popoverTriggerList.map(function (popoverTriggerEl) {
         return new bootstrap.Popover(popoverTriggerEl);
     });
-    
+
     // Handle search form
     const searchForm = document.querySelector('#search-form');
     if (searchForm) {
@@ -26,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Dynamic price range slider
     const priceRange = document.querySelector('#price-range');
     const priceValue = document.querySelector('#price-value');
@@ -35,14 +72,14 @@ document.addEventListener('DOMContentLoaded', function() {
             priceValue.textContent = priceRange.value + ' PLN';
         });
     }
-    
+
     // Marketplace toggle switches
     const marketplaceToggles = document.querySelectorAll('.marketplace-toggle');
     marketplaceToggles.forEach(toggle => {
         toggle.addEventListener('change', function() {
             const marketplaceId = this.dataset.marketplaceId;
             const isEnabled = this.checked;
-            
+
             fetch('/toggle-marketplace/' + marketplaceId, {
                 method: 'POST',
                 headers: {
@@ -71,14 +108,14 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
-    
+
     // Feature toggle switches
     const featureToggles = document.querySelectorAll('.feature-toggle');
     featureToggles.forEach(toggle => {
         toggle.addEventListener('change', function() {
             const featureId = this.dataset.featureId;
             const isEnabled = this.checked;
-            
+
             fetch('/toggle-feature/' + featureId, {
                 method: 'POST',
                 headers: {
@@ -99,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     console.error('Failed to toggle feature:', data.error);
                     this.checked = !isEnabled; // Revert toggle
-                    
+
                     if (data.premium_required) {
                         alert('This feature requires a premium subscription.');
                     }
@@ -111,13 +148,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
-    
+
     // Mark notifications as read
     const notificationLinks = document.querySelectorAll('.notification-item');
     notificationLinks.forEach(link => {
         link.addEventListener('click', function() {
             const notificationId = this.dataset.notificationId;
-            
+
             fetch('/mark-notification-read/' + notificationId, {
                 method: 'POST'
             })
@@ -132,44 +169,44 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
-    
+
     // AJAX search for test scraper
     const testScraperForm = document.querySelector('#test-scraper-form');
     const searchResults = document.querySelector('#search-results');
     const loadingSpinner = document.querySelector('#loading-spinner');
-    
+
     if (testScraperForm && searchResults && loadingSpinner) {
         testScraperForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(testScraperForm);
             const searchParams = new URLSearchParams();
-            
+
             for (const pair of formData.entries()) {
                 searchParams.append(pair[0], pair[1]);
             }
-            
+
             // Show loading spinner
             loadingSpinner.classList.remove('d-none');
             searchResults.innerHTML = '';
-            
+
             fetch('/api/search?' + searchParams.toString())
                 .then(response => response.json())
                 .then(data => {
                     loadingSpinner.classList.add('d-none');
-                    
+
                     if (data.error) {
                         searchResults.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
                         return;
                     }
-                    
+
                     if (data.results.length === 0) {
                         searchResults.innerHTML = `<div class="alert alert-info">No results found.</div>`;
                         return;
                     }
-                    
+
                     let resultsHtml = '<div class="row">';
-                    
+
                     data.results.forEach(item => {
                         resultsHtml += `
                             <div class="col-md-4 mb-4">
@@ -188,7 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         `;
                     });
-                    
+
                     resultsHtml += '</div>';
                     searchResults.innerHTML = resultsHtml;
                 })
@@ -198,5 +235,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error('Error:', error);
                 });
         });
+    }
+
+
+    // Added testTelegram function -  placed near other test functions (assumed intention)
+    function testTelegram() {
+        fetch('/settings/test/telegram', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                alert('Telegram configuration is working!');
+            } else {
+                alert('Failed to test Telegram: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error testing Telegram configuration');
+        });
+    }
+
+    function testEmail() {
+        const form = document.getElementById('emailConfigForm');
     }
 });

@@ -6,7 +6,7 @@ from flask import render_template, flash, redirect, url_for, request, jsonify, B
 from flask_login import login_required, current_user, login_user, logout_user
 from werkzeug.security import check_password_hash
 from app import app, db
-from models import SearchResult, Feature, Marketplace, Proxy, EmailConfig, Notification, Monitor, Item, User
+from models import SearchResult, Feature, Marketplace, Proxy, EmailConfig, Notification, Monitor, Item, User, APIConfig
 from utils.notification_service import NotificationService
 from simple_scraper_manager import SimpleScraperManager
 
@@ -156,6 +156,91 @@ def settings():
     feature_categories = set([f.category for f in features])
     
     email_config = EmailConfig.query.first()
+    telegram_config = APIConfig.query.filter_by(service_type='telegram', is_active=True).first()
+    
+    return render_template(
+        'settings.html',
+        title='Settings',
+        features=features,
+        feature_categories=feature_categories,
+        email_config=email_config,
+        telegram_config=telegram_config
+    )
+
+@app.route('/settings/api/telegram', methods=['POST'])
+@login_required
+def update_telegram_config():
+    """Update Telegram API configuration"""
+    token = request.form.get('telegram_token')
+    if not token:
+        return jsonify({'success': False, 'error': 'Token is required'})
+    
+    config = APIConfig.query.filter_by(service_type='telegram').first()
+    if not config:
+        config = APIConfig(
+            name='Telegram Bot',
+            service_type='telegram'
+        )
+    
+    config.api_key = token
+    config.is_active = True
+    
+    try:
+        db.session.add(config)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/settings/test/telegram', methods=['POST'])
+@login_required
+def test_telegram():
+    """Test Telegram configuration"""
+    config = APIConfig.query.filter_by(service_type='telegram', is_active=True).first()
+    if not config:
+        return jsonify({'success': False, 'error': 'Telegram not configured'})
+    
+    try:
+        import telegram
+        bot = telegram.Bot(token=config.api_key)
+        bot.get_me()  # Verify token is valid
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/settings/test_email', methods=['POST'])
+def test_email():
+    """Test email configuration"""
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    import smtplib
+    
+    try:
+        # Get form data
+        smtp_server = request.form.get('smtp_server')
+        smtp_port = int(request.form.get('smtp_port'))
+        smtp_username = request.form.get('smtp_username')
+        smtp_password = request.form.get('smtp_password')
+        
+        # Create test message
+        msg = MIMEMultipart()
+        msg['From'] = smtp_username
+        msg['To'] = smtp_username
+        msg['Subject'] = 'Test Email from Polish Marketplace Monitor'
+        body = 'This is a test email from your marketplace monitor. If you received this, your email configuration is working!'
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Send email
+        server = smtplib.SMTP(smtp_server, smtp_port)
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(msg)
+        server.quit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
     
     return render_template(
         'settings.html',
@@ -212,6 +297,22 @@ def api_search():
     
     return jsonify(results)
 
+@app.template_filter('datetime')
+def datetime_filter(value):
+    """Format datetime for template display"""
+    if not value:
+        return "N/A"
+    return value.strftime("%Y-%m-%d %H:%M")
+
+@app.template_filter('next_update')
+def next_update_filter(last_run, interval_minutes):
+    """Calculate next update time"""
+    if not last_run:
+        return "Not scheduled"
+    from datetime import timedelta
+    next_run = last_run + timedelta(minutes=interval_minutes)
+    return next_run.strftime("%Y-%m-%d %H:%M")
+
 @app.context_processor
 def utility_processor():
     """Make utility functions available to templates"""
@@ -251,6 +352,41 @@ def monitor():
 @app.route('/monitor/add', methods=['POST'])
 @login_required
 def add_to_monitor():
+    """Add item to monitor"""
+    data = request.get_json()
+    
+    # Create default monitor for user if none exists
+    monitor = Monitor.query.filter_by(user_id=current_user.id).first()
+    if not monitor:
+        monitor = Monitor(
+            user_id=current_user.id,
+            name="Default Monitor",
+            marketplaces=data.get('marketplace', ''),
+            keywords='',
+            is_active=True
+        )
+        db.session.add(monitor)
+        db.session.commit()
+    
+    # Check if item already exists
+    existing_item = Item.query.filter_by(url=data.get('url')).first()
+    if existing_item:
+        return jsonify({'success': False, 'error': 'Item already being monitored'})
+    
+    # Create new item
+    item = Item(
+        monitor_id=monitor.id,
+        title=data.get('title'),
+        price=float(data.get('price', 0)),
+        currency=data.get('currency', 'PLN'),
+        url=data.get('url'),
+        marketplace=data.get('marketplace'),
+        location=data.get('location')
+    )
+    db.session.add(item)
+    db.session.commit()
+    
+    return jsonify({'success': True})
     """Add item to monitor"""
     data = request.get_json()
     
@@ -297,6 +433,51 @@ def add_to_monitor():
         db.session.commit()
     
     return jsonify({'success': True})
+
+@app.route('/monitor/settings/<int:item_id>', methods=['POST'])
+@login_required
+def update_monitor_settings(item_id):
+    """Update monitoring settings for a specific item"""
+    item = Item.query.get_or_404(item_id)
+    monitor = Monitor.query.get(item.monitor_id)
+    
+    # Ensure the monitor belongs to the current user
+    if monitor.user_id != current_user.id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    data = request.get_json()
+    
+    # Update monitor settings
+    monitor.interval_minutes = max(5, min(1440, data.get('interval', 30)))  # Between 5 min and 24 hours
+    monitor.notification_email = data.get('email_notify', False)
+    monitor.notification_browser = data.get('browser_notify', False)
+    monitor.notification_telegram = data.get('telegram_notify', False)
+    
+    try:
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/monitor/item/<int:item_id>')
+@login_required
+def item_details(item_id):
+    """Show detailed information about a monitored item"""
+    item = Item.query.get_or_404(item_id)
+    
+    # Ensure the item belongs to the current user's monitor
+    monitor = Monitor.query.get(item.monitor_id)
+    if monitor.user_id != current_user.id:
+        flash('Access denied', 'danger')
+        return redirect(url_for('monitor'))
+    
+    # Get notifications related to this item's data
+    notifications = Notification.query.filter(
+        Notification.item_data.contains({'id': item_id})
+    ).order_by(Notification.created_at.desc()).all()
+    
+    return render_template('item_details.html', item=item, notifications=notifications)
 
 @app.route('/monitor/remove/<int:item_id>', methods=['POST'])
 @login_required

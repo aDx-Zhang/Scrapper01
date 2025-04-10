@@ -49,7 +49,20 @@
                     <h5 class="card-title mb-0">Notification Configuration</h5>
                 </div>
                 <div class="card-body">
-                    <h5>Email Configuration</h5>
+                    <h5 class="card-title">API Configurations</h5>
+                    <div class="mb-4">
+                        <h6>Telegram API Configuration</h6>
+                        <form id="telegramConfigForm">
+                            <div class="mb-3">
+                                <label class="form-label">Bot Token</label>
+                                <input type="password" class="form-control" name="telegram_token" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save Telegram Config</button>
+                            <button type="button" onclick="testTelegram()" class="btn btn-secondary">Test Telegram</button>
+                        </form>
+                    </div>
+
+                    <h5 class="card-title">Email Configuration</h5>
                     <form id="emailConfigForm" class="mb-4">
                         <div class="mb-3">
                             <label class="form-label">SMTP Server</label>
@@ -101,13 +114,52 @@
     //Existing script...
 
     function testEmail() {
-        // Add AJAX call to test email functionality
-        alert("Test Email function not implemented yet.");
+        const form = document.getElementById('emailConfigForm');
+        const formData = new FormData(form);
+
+        fetch('/settings/test_email', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                alert('Test email sent successfully!');
+            } else {
+                alert('Failed to send test email: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error sending test email');
+        });
     }
 
     function testSMS() {
         // Add AJAX call to test SMS functionality
         alert("Test SMS function not implemented yet.");
+    }
+
+    function testTelegram() {
+        const form = document.getElementById('telegramConfigForm');
+        const formData = new FormData(form);
+
+        fetch('/settings/test_telegram', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Telegram test successful!');
+            } else {
+                alert('Telegram test failed: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error testing Telegram');
+        });
     }
 </script>
 {% endblock %}

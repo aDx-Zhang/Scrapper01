@@ -1,96 +1,191 @@
-
 {% extends "base.html" %}
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Product Monitor</h2>
-    
-    <div class="card mb-4">
-        <div class="card-header">
-            <h5 class="mb-0">Monitor Settings</h5>
-        </div>
-        <div class="card-body">
-            <form id="monitorSettingsForm">
-                <div class="mb-3">
-                    <label class="form-label">Notification Methods</label>
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="browserNotif" checked>
-                        <label class="form-check-label">Browser Notifications</label>
-                    </div>
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="emailNotif">
-                        <label class="form-check-label">Email Notifications</label>
-                    </div>
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="smsNotif">
-                        <label class="form-check-label">SMS Notifications</label>
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Check Interval (minutes)</label>
-                    <input type="number" class="form-control" id="interval" value="30" min="5">
-                </div>
-                <button type="submit" class="btn btn-primary">Save Settings</button>
-            </form>
-        </div>
-    </div>
+    <h2>Product Monitor Dashboard</h2>
 
-    <div class="card">
-        <div class="card-header">
-            <h5 class="mb-0">Monitored Products</h5>
-        </div>
-        <div class="card-body">
-            <div id="monitoredProducts">
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Monitored Products</h5>
+                    <span class="badge bg-primary">{{ monitored_items|length }} Items</span>
+                </div>
                 {% for item in monitored_items %}
                 <div class="card mb-3">
                     <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h5 class="card-title">{{ item.title }}</h5>
-                                <p class="card-text text-primary fw-bold">{{ item.price }} {{ item.currency }}</p>
-                                <p class="card-text"><small class="text-muted">{{ item.marketplace }}</small></p>
+                        <form class="monitorSettingsForm" data-item-id="{{ item.id }}">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <h5>{{ item.title }}</h5>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Check Interval (minutes)</label>
+                                    <input type="number" class="form-control" name="interval" min="5" value="{{ item.monitor.interval_minutes }}">
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Notifications</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="email_notify" 
+                                               {% if item.monitor.notification_email %}checked{% endif %}>
+                                        <label class="form-check-label">Email Notifications</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="browser_notify"
+                                               {% if item.monitor.notification_browser %}checked{% endif %}>
+                                        <label class="form-check-label">Browser Notifications</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="telegram_notify"
+                                               {% if item.monitor.notification_telegram %}checked{% endif %}>
+                                        <label class="form-check-label">Telegram Notifications</label>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <button type="button" class="btn btn-primary save-settings" data-item-id="{{ item.id }}">
+                                        Save Settings
+                                    </button>
+                                </div>
                             </div>
-                            <button class="btn btn-danger btn-sm" onclick="removeFromMonitor('{{ item.id }}')">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                        </div>
+                        </form>
                     </div>
                 </div>
                 {% endfor %}
+                <div class="card-body">
+                    {% if monitored_items %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Price</th>
+                                        <th>Marketplace</th>
+                                        <th>Last Update</th>
+                                        <th>Next Update</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in monitored_items %}
+                                    <tr>
+                                        <td>
+                                            <a href="{{ url_for('item_details', item_id=item.id) }}" class="text-decoration-none">
+                                                <div class="d-flex align-items-center">
+                                                    {% if item.image_url %}
+                                                    <img src="{{ item.image_url }}" alt="{{ item.title }}" class="me-2" style="width: 50px; height: 50px; object-fit: cover;">
+                                                    {% endif %}
+                                                    <div>
+                                                        <strong>{{ item.title }}</strong>
+                                                        <br>
+                                                        <small class="text-muted">{{ item.location }}</small>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <strong>{{ item.price }} {{ item.currency }}</strong>
+                                            {% if item.price_changed %}
+                                            <br>
+                                            <small class="text-muted">Previous: {{ item.previous_price }} {{ item.currency }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ item.marketplace }}</td>
+                                        <td>{{ item.found_at|datetime }}</td>
+                                        <td>{{ item.monitor.last_run|next_update(item.monitor.interval_minutes) }}</td>
+                                        <td>
+                                            {% if item.price_changed %}
+                                            <span class="badge bg-warning">Price Changed</span>
+                                            {% else %}
+                                            <span class="badge bg-success">Watching</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <a href="{{ item.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-box-arrow-up-right"></i>
+                                                </a>
+                                                <button onclick="removeFromMonitor('{{ item.id }}')" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="bi bi-inbox display-1 text-muted"></i>
+                            <h4 class="mt-3">No Products Monitored</h4>
+                            <p class="text-muted">Start adding products to monitor from the search results.</p>
+                            <a href="{{ url_for('search') }}" class="btn btn-primary">
+                                <i class="bi bi-search me-2"></i>Search Products
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-function addToMonitor(resultJson) {
-    const result = JSON.parse(resultJson);
-    fetch('/monitor/add', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(result)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if(data.success) {
-            alert('Product added to monitor!');
-            location.reload();
-        }
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.save-settings').forEach(button => {
+        button.addEventListener('click', function() {
+            const itemId = this.dataset.itemId;
+            const form = document.querySelector(`.monitorSettingsForm[data-item-id="${itemId}"]`);
+            const data = {
+                interval: parseInt(form.querySelector('[name="interval"]').value),
+                email_notify: form.querySelector('[name="email_notify"]').checked,
+                browser_notify: form.querySelector('[name="browser_notify"]').checked,
+                telegram_notify: form.querySelector('[name="telegram_notify"]').checked
+            };
+
+            fetch(`/monitor/settings/${itemId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.success) {
+                    alert('Settings saved successfully!');
+                } else {
+                    alert('Failed to save settings: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving settings');
+            });
+        });
     });
-}
+});
 
 function removeFromMonitor(itemId) {
-    if(confirm('Remove this item from monitor?')) {
+    if(confirm('Are you sure you want to stop monitoring this item?')) {
         fetch(`/monitor/remove/${itemId}`, {
-            method: 'POST'
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
         })
         .then(response => response.json())
         .then(data => {
             if(data.success) {
                 location.reload();
+            } else {
+                alert('Failed to remove item from monitor');
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error removing item from monitor');
         });
     }
 }

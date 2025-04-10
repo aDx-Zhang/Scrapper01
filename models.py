@@ -78,7 +78,24 @@ class Monitor(db.Model):
     last_run = db.Column(db.DateTime, nullable=True)
     notification_email = db.Column(db.Boolean, default=True)
     notification_browser = db.Column(db.Boolean, default=True)
+    notification_telegram = db.Column(db.Boolean, default=False)
     items = db.relationship('Item', backref='monitor', lazy=True)
+
+    def __init__(self, **kwargs):
+        super(Monitor, self).__init__(**kwargs)
+        if 'notification_telegram' not in kwargs:
+            self.notification_telegram = False
+
+class APIConfig(db.Model):
+    """Model for API configurations"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    api_key = db.Column(db.String(500), nullable=False)
+    api_secret = db.Column(db.String(500), nullable=True)
+    service_type = db.Column(db.String(50), nullable=False)  # telegram, email, etc.
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def get_marketplaces_list(self):
         return self.marketplaces.split(',')

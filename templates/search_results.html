@@ -179,7 +179,7 @@
                     <a href="{{ item.url }}" target="_blank" class="btn btn-primary me-2">
                         <i class="bi bi-box-arrow-up-right me-2"></i>View on {{ item.marketplace }}
                     </a>
-                    <button onclick="addToMonitor('{{ item|tojson|safe }}')" class="btn btn-success">
+                    <button class="btn btn-success add-to-monitor" data-url="{{ item.url }}" data-title="{{ item.title }}" data-price="{{ item.price }}" data-currency="{{ item.currency }}" data-marketplace="{{ item.marketplace }}" data-location="{{ item.location }}">
                         <i class="bi bi-plus-circle me-2"></i>Add to Monitor
                     </button>
                 </div>
@@ -211,3 +211,28 @@
 </div>
 {% endif %}
 {% endblock %}
+
+<script>
+    const addToMonitorButtons = document.querySelectorAll('.add-to-monitor');
+    addToMonitorButtons.forEach(button => {
+        button.addEventListener('click', async (event) => {
+            const item = JSON.parse(event.target.dataset.item);
+            try {
+                const response = await fetch('/monitor', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(item)
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                alert('Item added to monitor!');
+            } catch (error) {
+                console.error('Error adding item to monitor:', error);
+                alert('Error adding item to monitor. Please try again later.');
+            }
+        });
+    });
+</script>
