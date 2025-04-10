@@ -1,0 +1,575 @@
+"""
+OtoDom Scraper - For scraping OtoDom.pl real estate marketplace
+"""
+import json
+import logging
+import re
+import urllib.parse
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+
+import trafilatura
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+from scraper.base_scraper import BaseScraper, ProxyManager
+
+logger = logging.getLogger(__name__)
+
+class OtoDomScraper(BaseScraper):
+    """Scraper for OtoDom.pl real estate marketplace"""
+
+    def __init__(self, proxy_manager: Optional[ProxyManager] = None):
+        """Initialize the OtoDom scraper"""
+        super().__init__(proxy_manager)
+        self.base_url = "https://www.otodom.pl"
+
+    def get_marketplace_name(self) -> str:
+        """Return the name of the marketplace this scraper handles"""
+        return "otodom"
+
+    def search(self, keywords: List[str], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Search for real estate properties on OtoDom matching the given keywords and filters"""
+        # Combine keywords into search query
+        query = " ".join(keywords)
+        encoded_query = urllib.parse.quote(query)
+
+        # Build the search URL with query
+        search_url = f"{self.base_url}/pl/wyniki/sprzedaz"
+        if encoded_query:
+            search_url = f"{search_url}?search%5Bfilter_float_price%3Afrom%5D=&search%5Bfilter_float_price%3Ato%5D=&search%5Bfilter_enum_rooms_num%5D%5B0%5D=&search%5Bfilter_enum_floor_no%5D%5B0%5D=&search%5Bdescription%5D={encoded_query}&search%5Bcategory_id%5D=&search%5Bfilter_enum_market%5D%5B0%5D="
+
+        # Apply filters if provided
+        if filters.get('price_min'):
+            search_url = self._add_url_param(search_url, "search[filter_float_price:from]", filters['price_min'])
+
+        if filters.get('price_max'):
+            search_url = self._add_url_param(search_url, "search[filter_float_price:to]", filters['price_max'])
+
+        if filters.get('location'):
+            location = urllib.parse.quote(filters['location'])
+            search_url = self._add_url_param(search_url, "search[filter_enum_city_id]", location)
+
+        logger.info(f"OtoDom search URL: {search_url}")
+
+        # Try to parse search results using various methods
+        try:
+            # First try with direct HTML parsing
+            items = self._parse_search_page(search_url, keywords, filters)
+            if items:
+                return items
+        except Exception as e:
+            logger.error(f"Error with direct HTML parsing: {e}")
+
+        try:
+            # Try with trafilatura if direct parsing fails
+            items = self._parse_with_trafilatura(search_url, keywords, filters)
+            if items:
+                return items
+        except Exception as e:
+            logger.error(f"Error with trafilatura parsing: {e}")
+
+        # If all parsing methods fail, return empty list
+        return []
+
+    def _add_url_param(self, url: str, param_name: str, param_value: Any) -> str:
+        """Add a parameter to the URL"""
+        separator = "&" if "?" in url else "?"
+        return f"{url}{separator}{param_name}={param_value}"
+
+    def _parse_search_page(self, search_url: str, keywords: List[str], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Parse OtoDom search results from the search page directly using HTML parsing"""
+        logger.info("Parsing OtoDom results with direct HTML parsing")
+        response = self.get_with_retry(search_url)
+        if not response:
+            logger.error("Failed to get OtoDom search page")
+            return []
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        items = []
+
+        # OtoDom uses a specific structure for listings
+        # Look for listing cards - CSS selectors may need periodic updates
+        listing_containers = soup.select('[data-cy="search.listing"] > li')
+
+        if not listing_containers:
+            # Fallback to alternative selectors
+            listing_containers = soup.select('.offer-item')
+
+        if not listing_containers:
+            # Another fallback to more generic selectors
+            listing_containers = soup.select('article')
+
+        for container in listing_containers:
+            try:
+                # Extract item URL
+                link_element = container.select_one('a[href]')
+                if not link_element:
+                    continue
+
+                item_url = link_element.get('href', '')
+                if item_url and not item_url.startswith('http'):
+                    item_url = self.base_url + item_url
+
+                # Extract title
+                title_element = (
+                    container.select_one('[data-cy="listing-item-title"]') or
+                    container.select_one('[data-testid="listing-item-title"]') or
+                    container.select_one('span.css-1w8rn4v') or
+                    container.select_one('h3')
+                )
+                title = title_element.text.strip() if title_element else "Unknown Property"
+
+                # Extract price
+                price_element = (
+                    container.select_one('span[data-cy="listing-item-price"]') or
+                    container.select_one('span.css-s8wpzb') or
+                    container.select_one('.e1w8sadu0') or
+                    container.select_one('[aria-label*="Cena"]') or
+                    container.select_one('div.css-1956gwe') or
+                    container.select_one('div.css-19vzpj0') or
+                    container.select_one('.css-1uwbl6v') or
+                    container.select_one('.offer-item-price')
+                )
+                price_text = price_element.text.strip() if price_element else "0 zł"
+
+                # Extract price value and currency
+                price_match = re.search(r'(\d+[\s\d]*\d*[,.]?\d*)\s*(?:zł|PLN)', price_text, re.IGNORECASE)
+                price = 0.0
+                currency = "PLN"
+
+                if price_match:
+                    price_str = price_match.group(1).replace(" ", "").replace(",", ".")
+                    try:
+                        price = float(price_str)
+                    except ValueError:
+                        price = 0.0
+
+                # Extract location
+                location_element = (
+                    container.select_one('[data-cy="listing-item-location"]') or
+                    container.select_one('[data-testid="listing-item-location"]') or
+                    container.select_one('p.css-19dkezj') or
+                    container.select_one('.offer-item-location')
+                )
+                location = location_element.text.strip() if location_element else "Unknown"
+
+                # Extract property details
+                details_elements = (
+                    container.select('[data-cy="listing-item-details"]') or
+                    container.select('[data-testid="listing-item-details"]') or
+                    container.select('div[data-testid="ad.top-information.table"]') or
+                    container.select('span.css-1qz7z11') or
+                    container.select('div.css-1wi2w6s') or
+                    container.select('span.css-1e0cl1h') or
+                    container.select('.offer-item-details')
+                )
+                details_text = " ".join([elem.text.strip() for elem in details_elements if elem and elem.text.strip()]) if details_elements else ""
+                
+                # Try to get additional description if available
+                description_element = (
+                    container.select_one('div[data-cy="listing-description"]') or
+                    container.select_one('div.css-1d9dws4') or
+                    container.select_one('div.css-1wekrze')
+                )
+                if description_element:
+                    details_text += " " + description_element.text.strip()
+
+                # Extract image
+                image_element = container.select_one('img')
+                image_url = None
+                if image_element:
+                    image_url = image_element.get('src') or image_element.get('data-src')
+
+                # Create item dictionary with real estate specific fields
+                item = {
+                    'title': title,
+                    'price': price,
+                    'currency': currency,
+                    'url': item_url,
+                    'image_url': image_url,
+                    'marketplace': self.get_marketplace_name(),
+                    'location': location,
+                    'description': details_text,
+                    # Real estate specific fields
+                    'property_type': self._extract_property_type(title, details_text),
+                    'area_size': self._extract_area_size(details_text),
+                    'rooms': self._extract_rooms(details_text),
+                    'floor': self._extract_floor(details_text),
+                    'seller_name': "Unknown",  # Need to get details page for this
+                    'seller_type': "Unknown",  # Agency or private
+                    'condition': "Unknown",
+                }
+
+                # Check if item passes filters
+                if self._passes_filters(item, filters):
+                    items.append(item)
+
+            except Exception as e:
+                logger.error(f"Error parsing OtoDom item: {e}")
+                continue
+
+        return items
+
+    def _parse_with_trafilatura(self, search_url: str, keywords: List[str], filters: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Parse OtoDom search results using trafilatura"""
+        logger.info("Parsing OtoDom results with trafilatura")
+        response = self.get_with_retry(search_url)
+        if not response:
+            logger.error("Failed to get OtoDom search page")
+            return []
+
+        # Extract the main content using trafilatura
+        html_content = response.text
+        extracted_text = trafilatura.extract(html_content)
+
+        if not extracted_text:
+            logger.warning("No content extracted with trafilatura")
+            return []
+
+        # Parse the HTML directly since trafilatura might not get all structured data
+        soup = BeautifulSoup(html_content, 'html.parser')
+        items = []
+
+        # Look for structured data in script tags (JSON-LD)
+        script_elements = soup.select('script[type="application/ld+json"]')
+        for script in script_elements:
+            try:
+                data = json.loads(script.string)
+
+                # Look for property listings in the structured data
+                if isinstance(data, list):
+                    for item_data in data:
+                        if item_data.get('@type') in ['Product', 'Place', 'Residence', 'ApartmentComplex', 'House']:
+                            item = self._extract_from_jsonld(item_data)
+                            if item and self._passes_filters(item, filters):
+                                items.append(item)
+                elif isinstance(data, dict):
+                    if data.get('@type') in ['Product', 'Place', 'Residence', 'ApartmentComplex', 'House']:
+                        item = self._extract_from_jsonld(data)
+                        if item and self._passes_filters(item, filters):
+                            items.append(item)
+            except (json.JSONDecodeError, AttributeError) as e:
+                logger.error(f"Error parsing JSON-LD: {e}")
+
+        # If we got items from JSON-LD, return them
+        if items:
+            return items
+
+        # Otherwise, use trafilatura extracted text to try to identify listings
+        # This is more of a fallback and less structured
+        listings = re.split(r'\n{2,}', extracted_text)
+        for listing_text in listings:
+            try:
+                # Try to extract property information from text
+                price_match = re.search(r'(\d+[\s\d]*\d*,?\d*)\s*(?:zł|PLN)', listing_text)
+                if not price_match:
+                    continue
+
+                price_str = price_match.group(1).replace(" ", "").replace(",", ".")
+                try:
+                    price = float(price_str)
+                except ValueError:
+                    price = 0.0
+
+                # Try to extract location
+                location_match = re.search(r'(Warszawa|Kraków|Łódź|Wrocław|Poznań|Gdańsk|Szczecin|Bydgoszcz|Lublin|Białystok|Katowice)[\s,]', listing_text)
+                location = location_match.group(1) if location_match else "Unknown"
+
+                # Create a basic item
+                item = {
+                    'title': listing_text.split('\n')[0][:100],
+                    'price': price,
+                    'currency': 'PLN',
+                    'url': search_url,  # Don't have specific URL from text extraction
+                    'image_url': None,
+                    'marketplace': self.get_marketplace_name(),
+                    'location': location,
+                    'description': listing_text,
+                    'property_type': self._extract_property_type(listing_text, listing_text),
+                    'area_size': self._extract_area_size(listing_text),
+                    'rooms': self._extract_rooms(listing_text),
+                    'floor': self._extract_floor(listing_text),
+                    'seller_name': "Unknown",
+                    'seller_type': "Unknown",
+                    'condition': "Unknown",
+                }
+
+                if self._passes_filters(item, filters):
+                    items.append(item)
+
+            except Exception as e:
+                logger.error(f"Error parsing OtoDom text listing: {e}")
+                continue
+
+        return items
+
+    def _extract_from_jsonld(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Extract property information from JSON-LD structured data"""
+        try:
+            title = data.get('name', 'Unknown Property')
+
+            # Extract price
+            price = 0.0
+            currency = 'PLN'
+
+            if 'offers' in data:
+                offer = data['offers']
+                if isinstance(offer, list) and offer:
+                    offer = offer[0]
+
+                if isinstance(offer, dict):
+                    price_str = str(offer.get('price', '0'))
+                    currency = offer.get('priceCurrency', 'PLN')
+                    try:
+                        price = float(price_str)
+                    except ValueError:
+                        price = 0.0
+
+            # Extract URL
+            url = data.get('url', '')
+
+            # Extract image
+            image_url = None
+            if 'image' in data:
+                image = data['image']
+                if isinstance(image, list) and image:
+                    image_url = image[0]
+                else:
+                    image_url = image
+
+            # Extract location
+            location = "Unknown"
+            if 'address' in data:
+                address = data['address']
+                if isinstance(address, dict):
+                    location_parts = []
+                    if 'addressLocality' in address:
+                        location_parts.append(address['addressLocality'])
+                    if 'streetAddress' in address:
+                        location_parts.append(address['streetAddress'])
+                    location = ", ".join(location_parts) if location_parts else "Unknown"
+
+            # Extract description
+            description = data.get('description', '')
+
+            # Create the item
+            return {
+                'title': title,
+                'price': price,
+                'currency': currency,
+                'url': url,
+                'image_url': image_url,
+                'marketplace': self.get_marketplace_name(),
+                'location': location,
+                'description': description,
+                'property_type': self._extract_property_type(title, description),
+                'area_size': self._extract_area_size(description),
+                'rooms': self._extract_rooms(description),
+                'floor': self._extract_floor(description),
+                'seller_name': data.get('seller', {}).get('name', "Unknown") if isinstance(data.get('seller'), dict) else "Unknown",
+                'seller_type': "Unknown",
+                'condition': "Unknown",
+            }
+        except Exception as e:
+            logger.error(f"Error extracting from JSON-LD: {e}")
+            return None
+
+    def _extract_property_type(self, title: str, details: str) -> str:
+        """Extract property type from title and details"""
+        property_types = {
+            'mieszkanie': 'apartment',
+            'dom': 'house',
+            'działka': 'land',
+            'lokal': 'commercial',
+            'biuro': 'office',
+            'garaż': 'garage',
+            'apartment': 'apartment',
+            'house': 'house',
+            'land': 'land',
+            'commercial': 'commercial',
+            'office': 'office',
+            'garage': 'garage',
+        }
+
+        combined_text = (title + ' ' + details).lower()
+
+        for key, value in property_types.items():
+            if key in combined_text:
+                return value
+
+        return "unknown"
+
+    def _extract_area_size(self, details: str) -> Optional[float]:
+        """Extract property area size in square meters"""
+        area_match = re.search(r'(\d+[.,]?\d*)\s*(?:m2|m²)', details)
+        if area_match:
+            try:
+                return float(area_match.group(1).replace(',', '.'))
+            except ValueError:
+                pass
+        return None
+
+    def _extract_rooms(self, details: str) -> Optional[int]:
+        """Extract number of rooms"""
+        rooms_match = re.search(r'(\d+)\s*(?:pok|room)', details)
+        if rooms_match:
+            try:
+                return int(rooms_match.group(1))
+            except ValueError:
+                pass
+        return None
+
+    def _extract_floor(self, details: str) -> Optional[str]:
+        """Extract floor information"""
+        floor_match = re.search(r'(?:piętro|floor)[:\s]+(\d+|parter|ground)', details, re.IGNORECASE)
+        if floor_match:
+            floor = floor_match.group(1)
+            if floor.lower() in ['parter', 'ground']:
+                return '0'
+            return floor
+        return None
+
+    def get_item_details(self, item_url: str) -> Dict[str, Any]:
+        """Get detailed information about a specific OtoDom property"""
+        logger.info(f"Getting details for OtoDom item: {item_url}")
+
+        response = self.get_with_retry(item_url)
+        if not response:
+            logger.error(f"Failed to get OtoDom item details for URL: {item_url}")
+            return {}
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        details = {}
+
+        # Try to get structured data first
+        script_elements = soup.select('script[type="application/ld+json"]')
+        for script in script_elements:
+            try:
+                data = json.loads(script.string)
+                if isinstance(data, dict) and data.get('@type') in ['Product', 'Place', 'Residence', 'ApartmentComplex', 'House']:
+                    extracted = self._extract_from_jsonld(data)
+                    if extracted:
+                        return extracted
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+        # Extract title
+        title_element = soup.select_one('h1')
+        details['title'] = title_element.text.strip() if title_element else "Unknown Property"
+
+        # Extract price
+        price_element = soup.select_one('[data-cy="price-value"]') or soup.select_one('.css-8qi9av')
+        price_text = price_element.text.strip() if price_element else "0 zł"
+
+        price_match = re.search(r'(\d+[\s\d]*\d*,?\d*)', price_text)
+        details['price'] = 0.0
+        details['currency'] = "PLN"
+
+        if price_match:
+            price_str = price_match.group(1).replace(" ", "").replace(",", ".")
+            try:
+                details['price'] = float(price_str)
+            except ValueError:
+                details['price'] = 0.0
+
+        # Extract description
+        description_element = soup.select_one('[data-cy="description"]')
+        details['description'] = description_element.text.strip() if description_element else ""
+
+        # Extract location
+        location_element = soup.select_one('[data-cy="address"]')
+        details['location'] = location_element.text.strip() if location_element else "Unknown"
+
+        # Extract property details
+        details_list = soup.select('[data-testid="property.details.table"] li') or soup.select('.css-1qz7z11')
+        property_details = {}
+
+        for detail in details_list:
+            try:
+                label_element = detail.select_one('p.css-a1oxt1') or detail.select_one('p:first-child')
+                value_element = detail.select_one('p.css-1ytkscc') or detail.select_one('p:nth-child(2)')
+
+                if label_element and value_element:
+                    key = label_element.text.strip()
+                    value = value_element.text.strip()
+                    property_details[key] = value
+
+                    # Extract specific property details
+                    if key.lower() in ['powierzchnia', 'area']:
+                        details['area_size'] = self._extract_area_size(value)
+                    elif key.lower() in ['liczba pokoi', 'rooms']:
+                        details['rooms'] = self._extract_rooms(value)
+                    elif key.lower() in ['piętro', 'floor']:
+                        details['floor'] = value
+                    elif key.lower() in ['stan wykończenia', 'condition']:
+                        details['condition'] = value
+            except Exception:
+                continue
+
+        # Extract seller information
+        seller_element = soup.select_one('[data-cy="seller-name"]')
+        details['seller_name'] = seller_element.text.strip() if seller_element else "Unknown"
+
+        # Determine seller type (agency or private)
+        agency_element = soup.select_one('[data-cy="seller-name-link"]')
+        details['seller_type'] = "Agency" if agency_element else "Private"
+
+        # Extract images
+        image_elements = soup.select('[data-cy="gallery-img"]')
+        details['image_urls'] = [img.get('src') for img in image_elements if img.get('src')]
+
+        if details['image_urls']:
+            details['image_url'] = details['image_urls'][0]
+        else:
+            details['image_url'] = None
+
+        details['property_type'] = self._extract_property_type(details['title'], details['description'])
+        details['additional_data'] = property_details
+        details['url'] = item_url
+        details['marketplace'] = self.get_marketplace_name()
+
+        return details
+
+    def _passes_filters(self, item: Dict[str, Any], filters: Dict[str, Any]) -> bool:
+        """Check if an item passes all provided filters"""
+        # Check price filters
+        if filters.get('price_min') is not None and item['price'] < filters['price_min']:
+            return False
+
+        if filters.get('price_max') is not None and item['price'] > filters['price_max']:
+            return False
+
+        # Check location filter (case insensitive partial match)
+        if filters.get('location') and filters['location'].lower() not in item['location'].lower():
+            return False
+
+        # Check condition filter
+        if filters.get('condition') and item['condition'] != "Unknown":
+            if filters['condition'].lower() not in item['condition'].lower():
+                return False
+
+        # Check property type filter
+        if filters.get('property_type') and item['property_type'] != "unknown":
+            if filters['property_type'].lower() != item['property_type'].lower():
+                return False
+
+        # Check minimum area size
+        if filters.get('min_area') is not None and item['area_size'] is not None:
+            if item['area_size'] < filters['min_area']:
+                return False
+
+        # Check maximum area size
+        if filters.get('max_area') is not None and item['area_size'] is not None:
+            if item['area_size'] > filters['max_area']:
+                return False
+
+        # Check number of rooms
+        if filters.get('rooms') is not None and item['rooms'] is not None:
+            if int(item['rooms']) != int(filters['rooms']):
+                return False
+
+        return True

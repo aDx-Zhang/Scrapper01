@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Search Marketplaces</h1>
+        <p class="lead">Search across multiple Polish marketplaces to find products that match your criteria</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Search Form</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('search') }}" method="post">
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label for="keywords" class="form-label">Keywords</label>
+                            <input type="text" class="form-control" id="keywords" name="keywords" placeholder="Enter keywords..." required>
+                            <div class="form-text">You can separate multiple keywords with commas</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="marketplace" class="form-label">Marketplace</label>
+                            <select class="form-select" id="marketplace" name="marketplace">
+                                {% for marketplace in marketplaces %}
+                                <option value="{{ marketplace.name }}">{{ marketplace.display_name }}</option>
+                                {% else %}
+                                <option value="olx">OLX.pl</option>
+                                <option value="allegro">Allegro.pl</option>
+                                <option value="otomoto">OtoMoto.pl</option>
+                                <option value="otodom">OtoDom.pl</option>
+                                <option value="sprzedajemy">Sprzedajemy.pl</option>
+                                <option value="gumtree">Gumtree.pl</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="price_min" class="form-label">Min Price (PLN)</label>
+                            <input type="number" class="form-control" id="price_min" name="price_min" placeholder="Min price...">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="price_max" class="form-label">Max Price (PLN)</label>
+                            <input type="number" class="form-control" id="price_max" name="price_max" placeholder="Max price...">
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="location" class="form-label">Location</label>
+                            <input type="text" class="form-control" id="location" name="location" placeholder="City or region...">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="condition" class="form-label">Condition</label>
+                            <select class="form-select" id="condition" name="condition">
+                                <option value="">Any condition</option>
+                                <option value="new">New</option>
+                                <option value="used">Used</option>
+                                <option value="damaged">Damaged</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    {% if is_feature_enabled('advanced_filters') %}
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="with_photos" name="with_photos" value="true">
+                                <label class="form-check-label" for="with_photos">
+                                    Only items with photos
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search me-2"></i>Search
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Searches</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for search in recent_searches %}
+                    <form action="{{ url_for('search') }}" method="post" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">{{ search.search_term }}</h5>
+                            <small>{{ format_datetime(search.created_at) }}</small>
+                        </div>
+                        <p class="mb-1">
+                            {{ search.marketplace }} - {{ search.result_count }} results
+                            {% if search.filters %}
+                            <br>
+                            <small>Filters: {{ search.filters_display() }}</small>
+                            {% endif %}
+                        </p>
+                        <input type="hidden" name="keywords" value="{{ search.search_term }}">
+                        <input type="hidden" name="marketplace" value="{{ search.marketplace }}">
+                        {% if search.filters %}
+                            {% for key, value in search.filters.items() %}
+                                <input type="hidden" name="{{ key }}" value="{{ value }}">
+                            {% endfor %}
+                        {% endif %}
+                        <button type="submit" class="btn btn-sm btn-outline-primary mt-2">
+                            <i class="bi bi-search"></i> Run Again
+                        </button>
+                    </form>
+                    {% else %}
+                    <div class="list-group-item">
+                        <p class="mb-0 text-center">No recent searches found</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Search Tips</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">Use commas to separate multiple keywords</li>
+                    <li class="list-group-item">Be specific with your search terms to get better results</li>
+                    <li class="list-group-item">Filter by price range to narrow down results</li>
+                    <li class="list-group-item">Use location to find items nearby</li>
+                    <li class="list-group-item">Different marketplaces may have different search capabilities</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

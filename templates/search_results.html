@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Search Results</h1>
+        <p class="lead">Showing results for "{{ search_term }}" on {{ marketplace }}</p>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    {{ error }}
+</div>
+{% endif %}
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Filter Options</h5>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+                    <i class="bi bi-filter"></i> Filters
+                </button>
+            </div>
+            <div class="collapse" id="filterCollapse">
+                <div class="card-body">
+                    <form action="{{ url_for('search') }}" method="post">
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="keywords" class="form-label">Keywords</label>
+                                <input type="text" class="form-control" id="keywords" name="keywords" value="{{ search_term }}" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="marketplace" class="form-label">Marketplace</label>
+                                <select class="form-select" id="marketplace" name="marketplace">
+                                    {% for mkt in marketplaces %}
+                                    <option value="{{ mkt.name }}" {% if mkt.name == marketplace %}selected{% endif %}>{{ mkt.display_name }}</option>
+                                    {% else %}
+                                    <option value="olx" {% if marketplace == "olx" %}selected{% endif %}>OLX.pl</option>
+                                    <option value="allegro" {% if marketplace == "allegro" %}selected{% endif %}>Allegro.pl</option>
+                                    <option value="otomoto" {% if marketplace == "otomoto" %}selected{% endif %}>OtoMoto.pl</option>
+                                    <option value="otodom" {% if marketplace == "otodom" %}selected{% endif %}>OtoDom.pl</option>
+                                    <option value="sprzedajemy" {% if marketplace == "sprzedajemy" %}selected{% endif %}>Sprzedajemy.pl</option>
+                                    <option value="gumtree" {% if marketplace == "gumtree" %}selected{% endif %}>Gumtree.pl</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="location" class="form-label">Location</label>
+                                <input type="text" class="form-control" id="location" name="location" value="{{ filters.location|default('') }}">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="price_min" class="form-label">Min Price (PLN)</label>
+                                <input type="number" class="form-control" id="price_min" name="price_min" value="{{ filters.price_min|default('') }}">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="price_max" class="form-label">Max Price (PLN)</label>
+                                <input type="number" class="form-control" id="price_max" name="price_max" value="{{ filters.price_max|default('') }}">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="condition" class="form-label">Condition</label>
+                                <select class="form-select" id="condition" name="condition">
+                                    <option value="">Any condition</option>
+                                    <option value="new" {% if filters.condition == "new" %}selected{% endif %}>New</option>
+                                    <option value="used" {% if filters.condition == "used" %}selected{% endif %}>Used</option>
+                                    <option value="damaged" {% if filters.condition == "damaged" %}selected{% endif %}>Damaged</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-search me-2"></i>Apply Filters
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <p>
+            <strong>{{ total }}</strong> results found
+            {% if filters %}
+            (Filters applied: 
+                {% if filters.price_min %}Min price: {{ format_price(filters.price_min) }}{% endif %}
+                {% if filters.price_max %}{% if filters.price_min %}, {% endif %}Max price: {{ format_price(filters.price_max) }}{% endif %}
+                {% if filters.location %}{% if filters.price_min or filters.price_max %}, {% endif %}Location: {{ filters.location }}{% endif %}
+                {% if filters.condition %}{% if filters.price_min or filters.price_max or filters.location %}, {% endif %}Condition: {{ filters.condition }}{% endif %}
+            )
+            {% endif %}
+        </p>
+    </div>
+    <div class="col-md-6 text-end">
+        {% if page > 1 %}
+        <form action="{{ url_for('search') }}" method="post" class="d-inline">
+            <input type="hidden" name="keywords" value="{{ search_term }}">
+            <input type="hidden" name="marketplace" value="{{ marketplace }}">
+            {% for key, value in filters.items() %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endfor %}
+            <input type="hidden" name="page" value="{{ page - 1 }}">
+            <button type="submit" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-chevron-left"></i> Previous
+            </button>
+        </form>
+        {% endif %}
+
+        {% if has_more %}
+        <form action="{{ url_for('search') }}" method="post" class="d-inline">
+            <input type="hidden" name="keywords" value="{{ search_term }}">
+            <input type="hidden" name="marketplace" value="{{ marketplace }}">
+            {% for key, value in filters.items() %}
+            <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endfor %}
+            <input type="hidden" name="page" value="{{ page + 1 }}">
+            <button type="submit" class="btn btn-sm btn-outline-primary">
+                Next <i class="bi bi-chevron-right"></i>
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+{% if results|length > 0 %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for item in results %}
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-img-wrapper" style="height: 200px; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
+                {% if item.image_url %}
+                <img src="{{ item.image_url }}" class="img-fluid" alt="{{ item.title }}" style="object-fit: contain; max-height: 100%; max-width: 100%;">
+                {% else %}
+                <div class="text-center">
+                    <i class="bi bi-image" style="font-size: 3rem;"></i>
+                    <p class="mt-2">No image available</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">{{ item.title if item.title else 'Click Link Below' }}</h5>
+                <p class="card-text text-primary fw-bold">{{ format_price(item.price, item.currency) if item.price else 'Click Link Below' }}</p>
+
+                <div class="small text-muted mb-2">
+                    <i class="bi bi-geo-alt"></i> {{ item.location if item.location else 'Click Link Below' }}
+                    {% if item.posted_at %}
+                    <span class="ms-2">
+                        <i class="bi bi-calendar"></i> {{ item.posted_at }}
+                    </span>
+                    {% endif %}
+                    {% if item.condition %}
+                    <span class="ms-2">
+                        <i class="bi bi-tag"></i> {{ item.condition if item.condition else 'Click Link Below' }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                <p class="card-text">{{ item.description|truncate(100) }}</p>
+
+                {% if item.seller_name %}
+                <div class="small text-muted mb-2">
+                    <i class="bi bi-person"></i> {{ item.seller_name }}
+                    {% if item.seller_rating %}
+                    <span class="ms-2">
+                        <i class="bi bi-star-fill text-warning"></i> {{ item.seller_rating }}
+                    </span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div class="d-grid gap-2">
+                    <a href="{{ item.url }}" target="_blank" class="btn btn-primary me-2">
+                        <i class="bi bi-box-arrow-up-right me-2"></i>View on {{ item.marketplace }}
+                    </a>
+                    <button onclick="addToMonitor('{{ item|tojson|safe }}')" class="btn btn-success">
+                        <i class="bi bi-plus-circle me-2"></i>Add to Monitor
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info" role="alert">
+    <i class="bi bi-info-circle-fill me-2"></i>
+    No results found for "{{ search_term }}" on {{ marketplace }}. Try adjusting your search terms or filters.
+</div>
+{% endif %}
+
+{% if has_more %}
+<div class="d-flex justify-content-center mt-4">
+    <form action="{{ url_for('search') }}" method="post">
+        <input type="hidden" name="keywords" value="{{ search_term }}">
+        <input type="hidden" name="marketplace" value="{{ marketplace }}">
+        {% for key, value in filters.items() %}
+        <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endfor %}
+        <input type="hidden" name="page" value="{{ page + 1 }}">
+        <button type="submit" class="btn btn-outline-primary">
+            Load More <i class="bi bi-arrow-down"></i>
+        </button>
+    </form>
+</div>
+{% endif %}
+{% endblock %}

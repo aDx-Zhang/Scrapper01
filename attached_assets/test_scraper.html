@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block title %}Test Scraper{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Test Marketplace Scraper</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Search Parameters</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('test_scraper') }}">
+                <div class="mb-3 row">
+                    <label for="marketplace" class="col-sm-2 col-form-label">Marketplace:</label>
+                    <div class="col-sm-10">
+                        <select class="form-select" id="marketplace" name="marketplace">
+                            <option value="olx" {% if marketplace == 'olx' %}selected{% endif %}>OLX</option>
+                            <option value="allegro" {% if marketplace == 'allegro' %}selected{% endif %}>Allegro</option>
+                            <option value="vinted" {% if marketplace == 'vinted' %}selected{% endif %}>Vinted</option>
+                            <option value="facebook" {% if marketplace == 'facebook' %}selected{% endif %}>Facebook Marketplace</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3 row">
+                    <label for="search_term" class="col-sm-2 col-form-label">Search Term:</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" id="search_term" name="search_term" 
+                               value="{{ search_term }}" placeholder="e.g. laptop, smartphone">
+                        <div class="form-text">Separate multiple keywords with commas</div>
+                    </div>
+                </div>
+                
+                <div class="mb-3 row">
+                    <label for="price_min" class="col-sm-2 col-form-label">Min Price:</label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" id="price_min" name="price_min" 
+                               value="{{ price_min }}" placeholder="e.g. 100">
+                    </div>
+                    
+                    <label for="price_max" class="col-sm-2 col-form-label">Max Price:</label>
+                    <div class="col-sm-4">
+                        <input type="number" class="form-control" id="price_max" name="price_max" 
+                               value="{{ price_max }}" placeholder="e.g. 1000">
+                    </div>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-2"></i> Search
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {% if results %}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Results ({{ total_results }})</h5>
+                <span class="badge bg-primary">{{ marketplace|upper }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for item in results %}
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="card h-100">
+                                {% if item.image_url %}
+                                    <img src="{{ item.image_url }}" class="card-img-top" alt="{{ item.title }}" 
+                                         style="height: 200px; object-fit: cover;"
+                                         onerror="this.onerror=null; this.src='/static/img/no-image.svg';">
+                                {% else %}
+                                    <img src="/static/img/no-image.svg" class="card-img-top" alt="No image available" 
+                                         style="height: 200px; object-fit: contain; background-color: #f8f9fa;">
+                                {% endif %}
+                                
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ item.title }}</h5>
+                                    <p class="card-text text-primary fw-bold">
+                                        {{ item.price }} {{ item.currency }}
+                                    </p>
+                                    {% if item.location %}
+                                        <p class="card-text">
+                                            <small class="text-muted">
+                                                <i class="fas fa-map-marker-alt me-1"></i> {{ item.location }}
+                                            </small>
+                                        </p>
+                                    {% endif %}
+                                </div>
+                                <div class="card-footer">
+                                    <a href="{{ item.url }}" target="_blank" class="btn btn-sm btn-outline-primary w-100">
+                                        <i class="fas fa-external-link-alt me-1"></i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                {% if has_more %}
+                    <div class="d-flex justify-content-center mt-4">
+                        <a href="{{ url_for('test_scraper', page=page+1) }}" class="btn btn-primary">
+                            <i class="fas fa-sync me-2"></i> Load More Results
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% elif request.method == 'POST' or search_term %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i> No results found. Try different search terms or filters.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

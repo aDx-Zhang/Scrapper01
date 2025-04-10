@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Settings</h1>
+            <p class="lead">Configure the application settings and features.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Features Settings -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Features</h5>
+                </div>
+                <div class="card-body">
+                    {% for category in feature_categories %}
+                    <h6 class="border-bottom pb-2 mb-3">{{ category.capitalize() }}</h6>
+                    <div class="mb-4">
+                        {% for feature in features if feature.category == category %}
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input feature-toggle" type="checkbox" role="switch" 
+                                   id="feature-{{ feature.name }}" {% if feature.is_enabled %}checked{% endif %}
+                                   data-feature-id="{{ feature.id }}">
+                            <label class="form-check-label" for="feature-{{ feature.name }}">
+                                {{ feature.display_name }}
+                                {% if feature.is_premium %}
+                                <span class="badge bg-warning text-dark">Premium</span>
+                                {% endif %}
+                            </label>
+                            {% if feature.description %}
+                            <small class="form-text text-muted d-block">{{ feature.description }}</small>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Email and SMS Configuration -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Notification Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <h5>Email Configuration</h5>
+                    <form id="emailConfigForm" class="mb-4">
+                        <div class="mb-3">
+                            <label class="form-label">SMTP Server</label>
+                            <input type="text" class="form-control" name="smtp_server" value="smtp.gmail.com">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">SMTP Port</label>
+                            <input type="number" class="form-control" name="smtp_port" value="587">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">SMTP Username</label>
+                            <input type="email" class="form-control" name="smtp_username">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">SMTP Password</label>
+                            <input type="password" class="form-control" name="smtp_password">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Email Settings</button>
+                        <button type="button" class="btn btn-secondary" onclick="testEmail()">Test Email</button>
+                    </form>
+
+                    <h5>SMS Configuration</h5>
+                    <form id="smsConfigForm">
+                        <div class="mb-3">
+                            <label class="form-label">SMS API Key</label>
+                            <input type="text" class="form-control" name="sms_api_key">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" name="phone_number">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save SMS Settings</button>
+                        <button type="button" class="btn btn-secondary" onclick="testSMS()">Test SMS</button>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<a href="/monitor" class="btn btn-primary mt-3">Go to Monitor</a>
+
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    //Existing script...
+
+    function testEmail() {
+        // Add AJAX call to test email functionality
+        alert("Test Email function not implemented yet.");
+    }
+
+    function testSMS() {
+        // Add AJAX call to test SMS functionality
+        alert("Test SMS function not implemented yet.");
+    }
+</script>
+{% endblock %}

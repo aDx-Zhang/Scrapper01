@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Available Marketplaces</h1>
+            <p class="lead">The following marketplaces are available for searching.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Status</th>
+                            <th>Country</th>
+                            <th>Description</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for marketplace in marketplaces %}
+                        <tr>
+                            <td>
+                                <strong>{{ marketplace.display_name }}</strong>
+                                {% if marketplace.is_premium %}
+                                <span class="badge bg-warning text-dark ms-2">Premium</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if marketplace.is_enabled %}
+                                <span class="badge bg-success">Enabled</span>
+                                {% else %}
+                                <span class="badge bg-danger">Disabled</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ marketplace.country }}</td>
+                            <td>{{ marketplace.description or 'No description available' }}</td>
+                            <td>
+                                <a href="{{ url_for('search') }}?marketplace={{ marketplace.name }}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-search"></i> Search
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center">No marketplaces available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

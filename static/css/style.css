@@ -1,0 +1,101 @@
+/* Custom Styles for Polish Marketplace Scraper */
+
+/* Global styles */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+/* Card styling */
+.card {
+    border-radius: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Search results styling */
+.search-result {
+    transition: transform 0.2s;
+}
+
+.search-result:hover {
+    transform: scale(1.02);
+}
+
+.search-result img {
+    max-height: 200px;
+    object-fit: contain;
+}
+
+.price {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+/* Marketplace badges */
+.marketplace-badge {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+}
+
+.marketplace-badge-olx {
+    background-color: #6c34e3;
+}
+
+.marketplace-badge-allegro {
+    background-color: #ff5a00;
+}
+
+.marketplace-badge-vinted {
+    background-color: #09b1ba;
+}
+
+/* Notification styling */
+.notification-unread {
+    background-color: rgba(13, 110, 253, 0.1);
+}
+
+/* Dashboard styling */
+.stat-card {
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+
+.stat-label {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Settings page */
+.feature-toggle .form-check-input {
+    width: 3rem;
+    height: 1.5rem;
+}
+
+/* Loading spinner */
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stat-number {
+        font-size: 1.8rem;
+    }
+}

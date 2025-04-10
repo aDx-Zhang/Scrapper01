@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h1>Dashboard</h1>
+        <p class="lead">Welcome to the Polish Marketplace Scraper dashboard</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card mb-4 text-center">
+            <div class="card-body">
+                <h5 class="card-title">Total Marketplaces</h5>
+                <p class="card-text display-4">{{ total_marketplaces }}</p>
+            </div>
+            <div class="card-footer">
+                <small class="text-muted">{{ enabled_marketplaces }} enabled</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4 text-center">
+            <div class="card-body">
+                <h5 class="card-title">Recent Notifications</h5>
+                <p class="card-text display-4">{{ get_unread_notifications_count() }}</p>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('notifications') }}" class="text-decoration-none">View all notifications</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4 text-center">
+            <div class="card-body">
+                <h5 class="card-title">Features Enabled</h5>
+                <p class="card-text display-4">
+                    {% set count = 0 %}
+                    {% if is_feature_enabled('use_proxies') %}{% set count = count + 1 %}{% endif %}
+                    {% if is_feature_enabled('email_notifications') %}{% set count = count + 1 %}{% endif %}
+                    {% if is_feature_enabled('browser_notifications') %}{% set count = count + 1 %}{% endif %}
+                    {% if is_feature_enabled('advanced_filters') %}{% set count = count + 1 %}{% endif %}
+                    {{ count }}
+                </p>
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('settings') }}" class="text-decoration-none">Configure settings</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Searches</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Search Term</th>
+                                <th>Marketplace</th>
+                                <th>Results</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for search in recent_searches %}
+                            <tr>
+                                <td>{{ search.search_term }}</td>
+                                <td>{{ search.marketplace }}</td>
+                                <td>{{ search.result_count }}</td>
+                                <td>{{ format_datetime(search.created_at) }}</td>
+                                <td>
+                                    <form action="{{ url_for('search') }}" method="post">
+                                        <input type="hidden" name="keywords" value="{{ search.search_term }}">
+                                        <input type="hidden" name="marketplace" value="{{ search.marketplace }}">
+                                        {% if search.filters %}
+                                            {% for key, value in search.filters.items() %}
+                                                <input type="hidden" name="{{ key }}" value="{{ value }}">
+                                            {% endfor %}
+                                        {% endif %}
+                                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-search"></i> Run Again
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center">No recent searches found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    <a href="{{ url_for('search') }}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Search</h5>
+                            <small><i class="bi bi-search"></i></small>
+                        </div>
+                        <p class="mb-1">Search across multiple Polish marketplaces</p>
+                    </a>
+                    <a href="{{ url_for('settings') }}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Settings</h5>
+                            <small><i class="bi bi-gear"></i></small>
+                        </div>
+                        <p class="mb-1">Configure application settings and features</p>
+                    </a>
+                    <a href="{{ url_for('marketplaces') }}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Marketplaces</h5>
+                            <small><i class="bi bi-shop"></i></small>
+                        </div>
+                        <p class="mb-1">View available marketplaces and their status</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">System Status</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Proxy Support</span>
+                        {% if is_feature_enabled('use_proxies') %}
+                            <span class="badge bg-success rounded-pill">Enabled</span>
+                        {% else %}
+                            <span class="badge bg-secondary rounded-pill">Disabled</span>
+                        {% endif %}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Email Notifications</span>
+                        {% if is_feature_enabled('email_notifications') %}
+                            <span class="badge bg-success rounded-pill">Enabled</span>
+                        {% else %}
+                            <span class="badge bg-secondary rounded-pill">Disabled</span>
+                        {% endif %}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Browser Notifications</span>
+                        {% if is_feature_enabled('browser_notifications') %}
+                            <span class="badge bg-success rounded-pill">Enabled</span>
+                        {% else %}
+                            <span class="badge bg-secondary rounded-pill">Disabled</span>
+                        {% endif %}
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Advanced Filters</span>
+                        {% if is_feature_enabled('advanced_filters') %}
+                            <span class="badge bg-success rounded-pill">Enabled</span>
+                        {% else %}
+                            <span class="badge bg-secondary rounded-pill">Disabled</span>
+                        {% endif %}
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

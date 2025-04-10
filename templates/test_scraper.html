@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary bg-opacity-75">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-search me-2"></i>Search Form
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('test_scraper') }}">
+                    <div class="mb-3">
+                        <label for="marketplace" class="form-label">Marketplace</label>
+                        <select class="form-select" id="marketplace" name="marketplace">
+                            <option value="olx" {% if marketplace == 'olx' %}selected{% endif %}>OLX</option>
+                            <option value="allegro" {% if marketplace == 'allegro' %}selected{% endif %}>Allegro</option>
+                            <option value="vinted" {% if marketplace == 'vinted' %}selected{% endif %}>Vinted</option>
+                            <option value="facebook" {% if marketplace == 'facebook' %}selected{% endif %}>Facebook Marketplace</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="search_term" class="form-label">Search Terms (comma separated)</label>
+                        <input type="text" class="form-control" id="search_term" name="search_term" 
+                               value="{{ search_term }}" required placeholder="e.g. iphone, samsung">
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="price_min" class="form-label">Min Price</label>
+                            <input type="number" class="form-control" id="price_min" name="price_min" 
+                                   value="{{ price_min }}" placeholder="e.g. 100">
+                        </div>
+                        <div class="col">
+                            <label for="price_max" class="form-label">Max Price</label>
+                            <input type="number" class="form-control" id="price_max" name="price_max" 
+                                   value="{{ price_max }}" placeholder="e.g. 500">
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>Search
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if recent_searches %}
+        <div class="card shadow-sm">
+            <div class="card-header bg-secondary bg-opacity-75">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history me-2"></i>Recent Searches
+                    </h5>
+                    <form method="POST" action="{{ url_for('clear_history') }}" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-danger" 
+                                onclick="return confirm('Are you sure you want to clear search history?')">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for search in recent_searches %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ search.search_term }}</strong>
+                            <div class="text-muted small">
+                                <span class="badge bg-info me-1">{{ search.marketplace }}</span>
+                                {{ search.filters_display }}
+                            </div>
+                            <div class="text-muted small">
+                                {{ search.created_at.strftime('%Y-%m-%d %H:%M') }} • 
+                                Found {{ search.result_count }} results
+                            </div>
+                        </div>
+                        <form method="POST" action="{{ url_for('test_scraper') }}">
+                            <input type="hidden" name="marketplace" value="{{ search.marketplace }}">
+                            <input type="hidden" name="search_term" value="{{ search.search_term }}">
+                            {% if search.filters and search.filters.price_min %}
+                            <input type="hidden" name="price_min" value="{{ search.filters.price_min }}">
+                            {% endif %}
+                            {% if search.filters and search.filters.price_max %}
+                            <input type="hidden" name="price_max" value="{{ search.filters.price_max }}">
+                            {% endif %}
+                            <button type="submit" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-redo-alt"></i>
+                            </button>
+                        </form>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary bg-opacity-75">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list me-2"></i>Search Results
+                    {% if total_results > 0 %}
+                    <span class="badge bg-success ms-2">{{ total_results }} found</span>
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if results %}
+                    <div class="row row-cols-1 row-cols-md-2 g-4">
+                        {% for item in results %}
+                        <div class="col">
+                            <div class="card h-100 shadow-sm product-card">
+                                <div class="card-img-container">
+                                    {% if item.image_url %}
+                                        <div class="card-img-wrapper" style="height: 200px; overflow: hidden; display: flex; align-items: center; justify-content: center; background-color: #f8f9fa;">
+                                            {% if item.image_url is string %}
+                                                <img src="{{ item.image_url }}" class="img-fluid" alt="{{ item.title }}" style="object-fit: contain; max-height: 100%; max-width: 100%;">
+                                            {% elif item.image_url is mapping %}
+                                                {% set img_src = item.image_url.url if item.image_url.url is string else item.image_url.contentUrl %}
+                                                <img src="{{ img_src }}" class="img-fluid" alt="{{ item.title }}" style="object-fit: contain; max-height: 100%; max-width: 100%;">
+                                            {% else %}
+                                                <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNhYWEiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==" class="img-fluid" alt="No image available" style="object-fit: contain; max-height: 100%; max-width: 100%;">
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <div class="no-image-placeholder d-flex align-items-center justify-content-center p-3">
+                                            <i class="fas fa-image fa-3x text-muted"></i>
+                                        </div>
+                                    {% endif %}
+                                    <span class="badge rounded-pill position-absolute marketplace-badge bg-{{ 'success' if item.marketplace == 'OLX' else 'primary' if item.marketplace == 'ALLEGRO' else 'info' if item.marketplace == 'VINTED' else 'secondary' }}">
+                                        {{ item.marketplace }}
+                                    </span>
+                                </div>
+                                <div class="card-body">
+                                    <h5 class="card-title text-truncate" title="{{ item.title }}">{{ item.title }}</h5>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="price-tag">{{ item.price }} {{ item.currency }}</span>
+                                        {% if item.location %}
+                                        <span class="location-tag text-muted">
+                                            <i class="fas fa-map-marker-alt me-1"></i>{{ item.location }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% if item.description %}
+                                    <p class="card-text description-text mt-2">
+                                        {{ item.description[:100] }}{% if item.description|length > 100 %}...{% endif %}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                <div class="card-footer">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>{{ item.seller_name or 'Unknown seller' }}
+                                        </small>
+                                        <a href="{{ item.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-external-link-alt me-1"></i>View
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if total_results > 0 %}
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div>
+                            Showing page {{ page }}
+                        </div>
+                        <div>
+                            {% if page > 1 %}
+                            <a href="{{ url_for('test_scraper', page=page-1) }}" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-arrow-left me-1"></i>Previous
+                            </a>
+                            {% endif %}
+
+                            {% if has_more %}
+                            <a href="{{ url_for('test_scraper', page=page+1) }}" class="btn btn-outline-primary">
+                                Next<i class="fas fa-arrow-right ms-1"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                {% else %}
+                    {% if search_term %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-search fa-3x mb-3 text-muted"></i>
+                        <h5>No results found</h5>
+                        <p class="text-muted">Try different search terms or filters.</p>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-search fa-3x mb-3 text-muted"></i>
+                        <h5>Search for products</h5>
+                        <p class="text-muted">Enter search terms and press the search button to start.</p>
+                    </div>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Highlight search terms in titles and descriptions
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchTerms = "{{ search_term }}".split(',').map(term => term.trim().toLowerCase());
+
+        if (searchTerms.length > 0 && searchTerms[0] !== '') {
+            const titles = document.querySelectorAll('.card-title');
+            const descriptions = document.querySelectorAll('.description-text');
+
+            // Function to highlight text
+            function highlightText(element, terms) {
+                if (!element) return;
+
+                let text = element.innerHTML;
+                terms.forEach(term => {
+                    if (!term) return;
+                    const regex = new RegExp(term, 'gi');
+                    text = text.replace(regex, match => `<span class="highlight">${match}</span>`);
+                });
+
+                element.innerHTML = text;
+            }
+
+            // Highlight titles
+            titles.forEach(title => highlightText(title, searchTerms));
+
+            // Highlight descriptions
+            descriptions.forEach(desc => highlightText(desc, searchTerms));
+        }
+    });
+</script>
+{% endblock %}

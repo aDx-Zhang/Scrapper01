@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}Email Configuration{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title mb-0">Email Configuration</h3>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('email_config') }}" method="post">
+                        <div class="mb-3">
+                            <label for="smtp_server" class="form-label">SMTP Server</label>
+                            <input type="text" class="form-control" id="smtp_server" name="smtp_server" 
+                                   value="{{ config.smtp_server if config else '' }}" required>
+                            <div class="form-text">e.g., smtp.gmail.com, smtp.sendgrid.net</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="smtp_port" class="form-label">SMTP Port</label>
+                            <input type="number" class="form-control" id="smtp_port" name="smtp_port" 
+                                   value="{{ config.smtp_port if config else 587 }}" required>
+                            <div class="form-text">Common ports: 25, 465 (SSL), 587 (TLS)</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="smtp_username" class="form-label">SMTP Username</label>
+                            <input type="text" class="form-control" id="smtp_username" name="smtp_username" 
+                                   value="{{ config.smtp_username if config else '' }}" required>
+                            <div class="form-text">Usually your email address</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="smtp_password" class="form-label">SMTP Password</label>
+                            <input type="password" class="form-control" id="smtp_password" name="smtp_password" 
+                                   value="{{ '********' if config else '' }}" required>
+                            <div class="form-text">Your email password or app password</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="from_email" class="form-label">From Email</label>
+                            <input type="email" class="form-control" id="from_email" name="from_email" 
+                                   value="{{ config.from_email if config else '' }}" required>
+                            <div class="form-text">Email address notifications will be sent from</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="to_email" class="form-label">To Email</label>
+                            <input type="email" class="form-control" id="to_email" name="to_email" 
+                                   value="{{ config.to_email if config else '' }}" required>
+                            <div class="form-text">Email address notifications will be sent to</div>
+                        </div>
+                        
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="use_tls" name="use_tls" 
+                                   {% if config is none or config.use_tls %}checked{% endif %}>
+                            <label class="form-check-label" for="use_tls">Use TLS</label>
+                            <div class="form-text">Enable Transport Layer Security (recommended for most providers)</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Save Configuration</button>
+                            <a href="{{ url_for('notifications') }}" class="btn btn-outline-secondary">Back to Notifications</a>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="card-footer">
+                    <div class="alert alert-info mb-0">
+                        <h5>Configuration Help</h5>
+                        <p class="mb-2">For Gmail accounts:</p>
+                        <ul class="mb-2">
+                            <li>SMTP Server: smtp.gmail.com</li>
+                            <li>SMTP Port: 587</li>
+                            <li>Use TLS: Checked</li>
+                            <li>You may need to create an <a href="https://support.google.com/accounts/answer/185833" target="_blank">App Password</a> if you have 2-factor authentication enabled.</li>
+                        </ul>
+                        
+                        <p class="mb-2">For Outlook/Office 365:</p>
+                        <ul class="mb-0">
+                            <li>SMTP Server: smtp.office365.com</li>
+                            <li>SMTP Port: 587</li>
+                            <li>Use TLS: Checked</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

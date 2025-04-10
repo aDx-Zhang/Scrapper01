@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h1 class="card-title">Polish Marketplace Scraper</h1>
+                <p class="card-text lead">
+                    Search multiple Polish marketplaces in one place and find the best deals!
+                </p>
+                <hr>
+                <p>
+                    This application allows you to search across multiple Polish marketplaces without 
+                    creating separate accounts. Find products, monitor prices, and receive notifications 
+                    when new items matching your criteria appear.
+                </p>
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('search') }}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-search me-2"></i>Start Searching
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Available Marketplaces</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/olx.pl" alt="OLX" class="me-2" width="24" height="24">
+                            <span>OLX.pl</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/allegro.pl" alt="Allegro" class="me-2" width="24" height="24">
+                            <span>Allegro.pl</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/otomoto.pl" alt="OtoMoto" class="me-2" width="24" height="24">
+                            <span>OtoMoto.pl</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/otodom.pl" alt="OtoDom" class="me-2" width="24" height="24">
+                            <span>OtoDom.pl</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/sprzedajemy.pl" alt="Sprzedajemy" class="me-2" width="24" height="24">
+                            <span>Sprzedajemy.pl</span>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="d-flex align-items-center">
+                            <img src="https://logo.clearbit.com/gumtree.pl" alt="Gumtree" class="me-2" width="24" height="24">
+                            <span>Gumtree.pl</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('marketplaces') }}" class="btn btn-outline-secondary">
+                        View All Marketplaces
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Quick Search</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('search') }}" method="post">
+                    <div class="mb-3">
+                        <label for="keywords" class="form-label">Keywords</label>
+                        <input type="text" class="form-control" id="keywords" name="keywords" placeholder="Enter keywords..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="marketplace" class="form-label">Marketplace</label>
+                        <select class="form-select" id="marketplace" name="marketplace">
+                            <option value="olx">OLX.pl</option>
+                            <option value="allegro">Allegro.pl</option>
+                            <option value="otomoto">OtoMoto.pl</option>
+                            <option value="otodom">OtoDom.pl</option>
+                            <option value="sprzedajemy">Sprzedajemy.pl</option>
+                            <option value="gumtree">Gumtree.pl</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="price_min" class="form-label">Min Price (PLN)</label>
+                        <input type="number" class="form-control" id="price_min" name="price_min" placeholder="Min price...">
+                    </div>
+                    <div class="mb-3">
+                        <label for="price_max" class="form-label">Max Price (PLN)</label>
+                        <input type="number" class="form-control" id="price_max" name="price_max" placeholder="Max price...">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-2"></i>Search
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Features</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Search Across Marketplaces</span>
+                        <span class="badge bg-success rounded-pill">Available</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Price Monitoring</span>
+                        <span class="badge bg-success rounded-pill">Available</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Email Notifications</span>
+                        <span class="badge bg-success rounded-pill">Available</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>Proxy Support</span>
+                        <span class="badge bg-success rounded-pill">Available</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
