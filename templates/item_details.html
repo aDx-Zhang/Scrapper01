@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 
 {% block content %}
@@ -70,9 +69,13 @@
                                     <td>{{ item.monitor.last_run|datetime }}</td>
                                 </tr>
                                 <tr>
+                                    <th>Last Fetched:</th>
+                                    <td>{{ item.last_fetched|datetime if item.last_fetched else 'N/A' }}</td>
+                                </tr>
+                                <tr>
                                     <th>Next Update:</th>
                                     <td id="next-update-counter">
-                                        {{ item.monitor.last_run|next_update(item.monitor.interval_minutes) }}
+                                        
                                     </td>
                                 </tr>
                                 <tr>
@@ -127,29 +130,85 @@
 
 <script>
 function updateTime() {
-    // Update current time
-    const now = new Date();
-    document.getElementById('current-time').textContent = now.toLocaleString();
+    let checkInProgress = false;
+    let timerInterval;
 
-    // Calculate next update time
-    const lastRun = new Date("{{ item.monitor.last_run|datetime if item.monitor.last_run else '' }}");
-    const intervalMinutes = {{ item.monitor.interval_minutes }};
-    
-    if (lastRun && !isNaN(lastRun)) {
-        const nextUpdate = new Date(lastRun.getTime() + (intervalMinutes * 60 * 1000));
-        const timeUntil = nextUpdate - now;
-        
-        if (timeUntil > 0) {
-            const minutes = Math.floor(timeUntil / (60 * 1000));
-            const seconds = Math.floor((timeUntil % (60 * 1000)) / 1000);
-            document.getElementById('next-update-counter').textContent = 
-                `In ${minutes}m ${seconds}s (${nextUpdate.toLocaleString()})`;
-        } else {
-            document.getElementById('next-update-counter').textContent = 'Updating soon...';
+    function updateDisplay() {
+        const now = new Date();
+        const startedStr = "{{ item.found_at|datetime }}";
+        const lastRunStr = "{{ item.monitor.last_run|datetime if item.monitor.last_run else '' }}";
+        const lastFetchStr = "{{ item.last_fetched|datetime if item.last_fetched else 'N/A' }}";
+        const intervalMinutes = {{ item.monitor.interval_minutes }};
+
+        // Update current time (US format)
+        document.getElementById('current-time').textContent = now.toLocaleString('en-US', {
+            timeZone: 'America/New_York',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+
+        // Calculate next check time
+        const lastRun = lastRunStr ? new Date(lastRunStr) : new Date(startedStr);
+        const nextCheck = new Date(lastRun.getTime() + (intervalMinutes * 60 * 1000));
+        let timeUntil = nextCheck - now;
+
+        // Ensure we're showing the next future check point
+        while (timeUntil <= 0) {
+            nextCheck.setTime(nextCheck.getTime() + (intervalMinutes * 60 * 1000));
+            timeUntil = nextCheck - now;
         }
-    } else {
-        document.getElementById('next-update-counter').textContent = 'Not scheduled';
+
+        // Format countdown display
+        const minutes = Math.floor(timeUntil / (60 * 1000));
+        const seconds = Math.floor((timeUntil % (60 * 1000)) / 1000);
+
+        // Update display
+        document.getElementById('next-update-counter').textContent = 
+            `Next check in ${minutes}m ${seconds}s`;
+
+        // If it's time to check, trigger the price check
+        if (timeUntil <= 0) {
+            checkPrice();
+        }
     }
+
+    async function checkPrice() {
+        if (checkInProgress) return;
+        checkInProgress = true;
+
+        try {
+            const response = await fetch('/monitor/check_price/{{ item.id }}');
+            const data = await response.json();
+
+            if (data.success) {
+                if (data.price_changed) {
+                    window.location.reload();
+                }
+            }
+        } catch (error) {
+            console.error('Error checking price:', error);
+        } finally {
+            checkInProgress = false;
+        }
+    }
+
+
+    // Clear any existing interval
+    if (timerInterval) {
+        clearInterval(timerInterval);
+    }
+
+    // Initial update and start monitoring
+    updateDisplay();
+    timerInterval = setInterval(updateDisplay, 1000);
+
+    // Initial price check
+    checkPrice();
 }
 
 // Update immediately and then every second

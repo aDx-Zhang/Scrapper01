@@ -212,27 +212,85 @@
 {% endif %}
 {% endblock %}
 
+<!-- Monitor Settings Modal -->
+<div class="modal fade" id="monitorSettingsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Monitor Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="monitorSettingsForm">
+                    <div class="mb-3">
+                        <label class="form-label">Check Interval (minutes)</label>
+                        <input type="number" class="form-control" name="interval" min="5" value="30">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notifications</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="email_notify" checked>
+                            <label class="form-check-label">Email Notifications</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="browser_notify" checked>
+                            <label class="form-check-label">Browser Notifications</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="telegram_notify">
+                            <label class="form-check-label">Telegram Notifications</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveMonitorSettings">Add to Monitor</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    let selectedItem = null;
+    const modal = new bootstrap.Modal(document.getElementById('monitorSettingsModal'));
+    
     const addToMonitorButtons = document.querySelectorAll('.add-to-monitor');
     addToMonitorButtons.forEach(button => {
-        button.addEventListener('click', async (event) => {
-            const item = JSON.parse(event.target.dataset.item);
-            try {
-                const response = await fetch('/monitor', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(item)
-                });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                alert('Item added to monitor!');
-            } catch (error) {
-                console.error('Error adding item to monitor:', error);
-                alert('Error adding item to monitor. Please try again later.');
-            }
+        button.addEventListener('click', (event) => {
+            selectedItem = JSON.parse(event.target.dataset.item);
+            modal.show();
         });
+    });
+
+    document.getElementById('saveMonitorSettings').addEventListener('click', async () => {
+        const form = document.getElementById('monitorSettingsForm');
+        const formData = {
+            ...selectedItem,
+            interval: parseInt(form.querySelector('[name="interval"]').value),
+            email_notify: form.querySelector('[name="email_notify"]').checked,
+            browser_notify: form.querySelector('[name="browser_notify"]').checked,
+            telegram_notify: form.querySelector('[name="telegram_notify"]').checked
+        };
+
+        try {
+            const response = await fetch('/monitor/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            modal.hide();
+            alert('Item added to monitor!');
+        } catch (error) {
+            console.error('Error adding item to monitor:', error);
+            alert('Error adding item to monitor. Please try again later.');
+        }
     });
 </script>

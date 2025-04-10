@@ -30,6 +30,38 @@ class NotificationService:
     def create_notification(cls, title: str, message: str, notification_type: str = 'browser',
                            search_term: Optional[str] = None, marketplace: Optional[str] = None,
                            url: Optional[str] = None, item_data: Optional[Dict[str, Any]] = None) -> Optional[Any]:
+        """Create and send a notification"""
+        if not db or not Notification:
+            logger.error("Database not available for notifications")
+            return None
+            
+        try:
+            notification = Notification(
+                title=title,
+                message=message,
+                notification_type=notification_type,
+                search_term=search_term,
+                marketplace=marketplace,
+                url=url,
+                item_data=item_data,
+                created_at=datetime.utcnow()
+            )
+            
+            db.session.add(notification)
+            db.session.commit()
+            
+            # Send notifications based on type
+            if notification_type == 'email':
+                cls.send_email_notification(notification)
+            elif notification_type == 'browser':
+                # Browser notifications are handled client-side
+                pass
+                
+            return notification
+        except Exception as e:
+            logger.error(f"Error creating notification: {str(e)}")
+            db.session.rollback()
+            return None
         """
         Create a new notification
         

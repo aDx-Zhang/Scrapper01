@@ -25,13 +25,13 @@ class Feature(db.Model):
     is_enabled = db.Column(db.Boolean, default=False)
     is_premium = db.Column(db.Boolean, default=False)
     category = db.Column(db.String(50), default='general')
-    
+
     @classmethod
     def is_feature_enabled(cls, feature_name):
         """Check if a feature is enabled"""
         feature = cls.query.filter_by(name=feature_name).first()
         return feature and feature.is_enabled
-    
+
     @classmethod
     def get_by_category(cls, category=None):
         """Get features by category"""
@@ -52,7 +52,7 @@ class Marketplace(db.Model):
     country = db.Column(db.String(50), default='PL')
     priority = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     @classmethod
     def get_available_marketplaces(cls, include_premium=False):
         """Get available marketplaces"""
@@ -120,13 +120,14 @@ class Item(db.Model):
     seller_rating = db.Column(db.Float, nullable=True)
     condition = db.Column(db.String(50), nullable=True)
     found_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_fetched = db.Column(db.DateTime, nullable=True)
     additional_data = db.Column(JSON, nullable=True)
     is_notified = db.Column(db.Boolean, default=False)
-    
+
     def set_additional_data(self, data_dict):
         """Convert dictionary to JSON string and store it"""
         self.additional_data = data_dict
-        
+
     def get_additional_data(self):
         """Get additional data as dictionary"""
         return self.additional_data if self.additional_data else {}
@@ -144,17 +145,17 @@ class Notification(db.Model):
     marketplace = db.Column(db.String(50), nullable=True)
     url = db.Column(db.String(1024), nullable=True)
     item_data = db.Column(JSON, nullable=True)
-    
+
     @classmethod
     def get_unread(cls, limit=10):
         """Get unread notifications"""
         return cls.query.filter_by(is_read=False).order_by(cls.created_at.desc()).limit(limit).all()
-    
+
     @classmethod
     def get_unsent_by_type(cls, notification_type):
         """Get unsent notifications of a specific type"""
         return cls.query.filter_by(notification_type=notification_type, is_sent=False).all()
-    
+
     @classmethod
     def create_from_item(cls, item, notification_type='browser', title=None, message=None):
         """Create a notification from an item"""
@@ -191,7 +192,7 @@ class Proxy(db.Model):
     last_used = db.Column(db.DateTime, nullable=True)
     failure_count = db.Column(db.Integer, default=0)
     country = db.Column(db.String(50), default='PL')
-    
+
     def get_proxy_url(self):
         """Generate proxy URL with authentication if provided"""
         if self.username and self.password:
@@ -206,7 +207,7 @@ class SearchResult(db.Model):
     filters = db.Column(JSON, nullable=True)
     result_count = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def filters_display(self):
         """Format filters for display"""
         if not self.filters:
@@ -232,7 +233,7 @@ class EmailConfig(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     @classmethod
     def get_active_config(cls):
         """Get the active email configuration"""
