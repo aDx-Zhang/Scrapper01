@@ -70,12 +70,22 @@
                                 </tr>
                                 <tr>
                                     <th>Last Fetched:</th>
-                                    <td>{{ item.last_fetched|datetime if item.last_fetched else 'N/A' }}</td>
+                                    <td>
+                                        {{ item.last_fetched|datetime if item.last_fetched else 'N/A' }}
+                                        {% if item.fetch_status %}
+                                            <span class="badge bg-{{ 'success' if item.fetch_status == 'success' else 'danger' if item.fetch_status == 'failed' else 'warning' }}">
+                                                {{ item.fetch_status }}
+                                            </span>
+                                        {% endif %}
+                                        {% if item.fetch_error %}
+                                            <small class="text-danger d-block">{{ item.fetch_error }}</small>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 <tr>
                                     <th>Next Update:</th>
                                     <td id="next-update-counter">
-                                        
+
                                     </td>
                                 </tr>
                                 <tr>
@@ -96,6 +106,21 @@
         <div class="col-md-4">
             <div class="card mb-4">
                 <div class="card-header">
+                    <h5 class="mb-0">Fetch Status</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Status:</strong> {{ item.fetch_status }}</p>
+                    {% if item.fetch_error %}
+                    <p><strong>Error:</strong> {{ item.fetch_error }}</p>
+                    {% endif %}
+                    {% if item.last_fetched %}
+                    <p><strong>Last Fetched:</strong> {{ item.last_fetched|datetime }}</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
                     <h5 class="mb-0">Price History</h5>
                 </div>
                 <div class="card-body">
@@ -110,17 +135,19 @@
                 </div>
                 <div class="card-body">
                     <div class="list-group">
-                        {% for notification in notifications %}
-                        <div class="list-group-item">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">{{ notification.title }}</h6>
-                                <small>{{ notification.created_at|datetime }}</small>
+                        {% if notifications %}
+                            {% for notification in notifications %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ notification.title }}</h6>
+                                    <small>{{ notification.created_at|datetime }}</small>
+                                </div>
+                                <p class="mb-1">{{ notification.message }}</p>
                             </div>
-                            <p class="mb-1">{{ notification.message }}</p>
-                        </div>
+                            {% endfor %}
                         {% else %}
-                        <p class="text-muted text-center mb-0">No notifications yet</p>
-                        {% endfor %}
+                            <p class="text-muted text-center mb-0">No notifications yet</p>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -130,86 +157,88 @@
 
 <script>
 function updateTime() {
-    let checkInProgress = false;
-    let timerInterval;
+        let checkInProgress = false;
+        let timerInterval;
 
-    function updateDisplay() {
-        const now = new Date();
-        const startedStr = "{{ item.found_at|datetime }}";
-        const lastRunStr = "{{ item.monitor.last_run|datetime if item.monitor.last_run else '' }}";
-        const lastFetchStr = "{{ item.last_fetched|datetime if item.last_fetched else 'N/A' }}";
-        const intervalMinutes = {{ item.monitor.interval_minutes }};
+        function updateDisplay() {
+            const now = new Date();
+            const timeFormatOptions = {
+                timeZone: 'America/New_York',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            };
 
-        // Update current time (US format)
-        document.getElementById('current-time').textContent = now.toLocaleString('en-US', {
-            timeZone: 'America/New_York',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        });
+            const startedStr = "{{ item.found_at|datetime }}";
+            const lastRunStr = "{{ item.monitor.last_run|datetime if item.monitor.last_run else '' }}";
+            const lastFetchStr = "{{ item.last_fetched|datetime if item.last_fetched else 'N/A' }}";
+            const intervalMinutes = {{ item.monitor.interval_minutes }};
 
-        // Calculate next check time
-        const lastRun = lastRunStr ? new Date(lastRunStr) : new Date(startedStr);
-        const nextCheck = new Date(lastRun.getTime() + (intervalMinutes * 60 * 1000));
-        let timeUntil = nextCheck - now;
+            // Update all times using Eastern timezone
+            document.getElementById('current-time').textContent = now.toLocaleString('en-US', timeFormatOptions);
 
-        // Ensure we're showing the next future check point
-        while (timeUntil <= 0) {
-            nextCheck.setTime(nextCheck.getTime() + (intervalMinutes * 60 * 1000));
-            timeUntil = nextCheck - now;
-        }
+            // Calculate next check time
+            const lastRun = lastRunStr ? new Date(lastRunStr) : new Date(startedStr);
+            const nextCheck = new Date(lastRun.getTime() + (intervalMinutes * 60 * 1000));
+            let timeUntil = nextCheck - now;
 
-        // Format countdown display
-        const minutes = Math.floor(timeUntil / (60 * 1000));
-        const seconds = Math.floor((timeUntil % (60 * 1000)) / 1000);
-
-        // Update display
-        document.getElementById('next-update-counter').textContent = 
-            `Next check in ${minutes}m ${seconds}s`;
-
-        // If it's time to check, trigger the price check
-        if (timeUntil <= 0) {
-            checkPrice();
-        }
-    }
-
-    async function checkPrice() {
-        if (checkInProgress) return;
-        checkInProgress = true;
-
-        try {
-            const response = await fetch('/monitor/check_price/{{ item.id }}');
-            const data = await response.json();
-
-            if (data.success) {
-                if (data.price_changed) {
-                    window.location.reload();
-                }
+            // Ensure we're showing the next future check point
+            while (timeUntil <= 0) {
+                nextCheck.setTime(nextCheck.getTime() + (intervalMinutes * 60 * 1000));
+                timeUntil = nextCheck - now;
             }
-        } catch (error) {
-            console.error('Error checking price:', error);
-        } finally {
-            checkInProgress = false;
+
+            // Format countdown display
+            const minutes = Math.floor(timeUntil / (60 * 1000));
+            const seconds = Math.floor((timeUntil % (60 * 1000)) / 1000);
+
+            // Update display
+            document.getElementById('next-update-counter').textContent = 
+                `Next check in ${minutes}m ${seconds}s`;
+
+            // If it's time to check, trigger the price check
+            if (timeUntil <= 0) {
+                checkPrice();
+            }
         }
+
+        async function checkPrice() {
+            if (checkInProgress) return;
+            checkInProgress = true;
+
+            try {
+                const response = await fetch('/monitor/check_price/{{ item.id }}');
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.price_changed) {
+                        window.location.reload();
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking price:', error);
+            } finally {
+                checkInProgress = false;
+            }
+        }
+
+
+        // Clear any existing interval
+        if (timerInterval) {
+            clearInterval(timerInterval);
+        }
+
+        // Initial update and start monitoring
+        updateDisplay();
+        timerInterval = setInterval(updateDisplay, 1000);
+
+        // Initial price check
+        checkPrice();
     }
-
-
-    // Clear any existing interval
-    if (timerInterval) {
-        clearInterval(timerInterval);
-    }
-
-    // Initial update and start monitoring
-    updateDisplay();
-    timerInterval = setInterval(updateDisplay, 1000);
-
-    // Initial price check
-    checkPrice();
-}
 
 // Update immediately and then every second
 updateTime();

@@ -94,10 +94,15 @@
                                         <td>{{ item.found_at|datetime }}</td>
                                         <td>{{ item.monitor.last_run|next_update(item.monitor.interval_minutes) }}</td>
                                         <td>
-                                            {% if item.price_changed %}
-                                            <span class="badge bg-warning">Price Changed</span>
+                                            {% if item.fetch_status == 'success' %}
+                                            <span class="badge bg-success">Success</span>
+                                            {% elif item.fetch_status == 'failed' %}
+                                            <span class="badge bg-danger">Failed</span>
                                             {% else %}
-                                            <span class="badge bg-success">Watching</span>
+                                            <span class="badge bg-warning">Pending</span>
+                                            {% endif %}
+                                            {% if item.fetch_error %}
+                                            <small class="text-danger d-block">{{ item.fetch_error }}</small>
                                             {% endif %}
                                         </td>
                                         <td>

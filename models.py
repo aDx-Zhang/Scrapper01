@@ -121,6 +121,8 @@ class Item(db.Model):
     condition = db.Column(db.String(50), nullable=True)
     found_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_fetched = db.Column(db.DateTime, nullable=True)
+    fetch_status = db.Column(db.String(50), default='pending')  # pending, success, failed
+    fetch_error = db.Column(db.Text, nullable=True)
     additional_data = db.Column(JSON, nullable=True)
     is_notified = db.Column(db.Boolean, default=False)
 

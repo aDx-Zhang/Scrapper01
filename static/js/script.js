@@ -3,6 +3,11 @@
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Polish Marketplace Scraper initialized');
 
+    // Request notification permission on page load
+    if ("Notification" in window) {
+        Notification.requestPermission();
+    }
+
     // Handle "Add to Monitor" buttons
     document.addEventListener('click', function(e) {
         const button = e.target.closest('.add-to-monitor');
@@ -263,4 +268,45 @@ document.addEventListener('DOMContentLoaded', function() {
     function testEmail() {
         const form = document.getElementById('emailConfigForm');
     }
+
+    // Function to show desktop notification
+    function showDesktopNotification(title, message) {
+        if (!("Notification" in window)) {
+            console.log("This browser does not support desktop notifications");
+            return;
+        }
+
+        if (Notification.permission === "granted") {
+            new Notification(title, {
+                body: message,
+                icon: '/static/img/icon.png'
+            });
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then(function (permission) {
+                if (permission === "granted") {
+                    new Notification(title, {
+                        body: message,
+                        icon: '/static/img/icon.png'
+                    });
+                }
+            });
+        }
+    }
+
+    // Function to check for new notifications
+    function checkNotifications() {
+        fetch('/notifications/unread')
+            .then(response => response.json())
+            .then(data => {
+                if (data.notifications && data.notifications.length > 0) {
+                    data.notifications.forEach(notification => {
+                        showDesktopNotification(notification.title, notification.message);
+                    });
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    // Check for new notifications every minute
+    setInterval(checkNotifications, 60000);
 });

@@ -18,14 +18,14 @@ def initialize_database():
     if db is None or Feature is None or Marketplace is None:
         logger.error("Database models not available, cannot initialize database")
         return False
-        
+
     logger.info("Initializing database...")
-    
+
     # Create default admin user if it doesn't exist
     try:
         from models import User
         from werkzeug.security import generate_password_hash
-        
+
         admin = User.query.filter_by(username='admin').first()
         if not admin:
             admin = User(
@@ -38,13 +38,13 @@ def initialize_database():
             logger.info("Created default admin user")
     except Exception as e:
         logger.error(f"Error creating admin user: {e}")
-    
+
     # Initialize features
     initialize_features()
-    
+
     # Initialize marketplaces
     initialize_marketplaces()
-    
+
     logger.info("Database initialization complete")
     return True
 
@@ -79,8 +79,8 @@ def initialize_features():
             'name': 'desktop_notifications',
             'display_name': 'Desktop Notifications',
             'description': 'Send notifications to desktop when new items are found',
-            'is_enabled': False,
-            'is_premium': True,
+            'is_enabled': True,
+            'is_premium': False,
             'category': 'notifications'
         },
         {
@@ -92,39 +92,15 @@ def initialize_features():
             'category': 'search'
         },
         {
-            'name': 'premium_marketplaces',
-            'display_name': 'Premium Marketplaces',
-            'description': 'Access to premium marketplaces with advanced search capabilities',
-            'is_enabled': False,
-            'is_premium': True,
-            'category': 'search'
-        },
-        {
-            'name': 'scheduled_searches',
-            'display_name': 'Scheduled Searches',
-            'description': 'Schedule automatic searches at regular intervals',
-            'is_enabled': False,
-            'is_premium': True,
-            'category': 'search'
-        },
-        {
             'name': 'export_results',
             'display_name': 'Export Results',
             'description': 'Export search results to CSV, Excel, etc.',
             'is_enabled': True,
             'is_premium': False,
             'category': 'results'
-        },
-        {
-            'name': 'price_history',
-            'display_name': 'Price History',
-            'description': 'Track price history for items over time',
-            'is_enabled': False,
-            'is_premium': True,
-            'category': 'results'
         }
     ]
-    
+
     for feature_data in features:
         # Check if feature already exists
         feature = Feature.query.filter_by(name=feature_data['name']).first()
@@ -135,7 +111,7 @@ def initialize_features():
             db.session.add(feature)
             db.session.commit()
             logger.info(f"Created feature: {feature_data['name']}")
-    
+
     logger.info("Features initialized")
 
 def initialize_marketplaces():
@@ -263,7 +239,7 @@ def initialize_marketplaces():
             'priority': 10
         }
     ]
-    
+
     for marketplace_data in marketplaces:
         # Check if marketplace already exists
         marketplace = Marketplace.query.filter_by(name=marketplace_data['name']).first()
@@ -274,5 +250,5 @@ def initialize_marketplaces():
             db.session.add(marketplace)
             db.session.commit()
             logger.info(f"Created marketplace: {marketplace_data['name']}")
-    
+
     logger.info("Marketplaces initialized")

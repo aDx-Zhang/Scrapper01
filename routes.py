@@ -149,6 +149,16 @@ def marketplaces():
         marketplaces=all_marketplaces
     )
 
+@app.route('/settings/reset_database', methods=['POST'])
+def reset_database():
+    """Reset the database to initial state"""
+    try:
+        from migrations import recreate_database
+        recreate_database()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/settings')
 def settings():
     """Settings page with feature toggles and global configurations"""
@@ -250,6 +260,19 @@ def test_email():
         email_config=email_config
     )
 
+@app.route('/notifications/unread')
+def unread_notifications():
+    """Get unread notifications for desktop notifications"""
+    notifications = Notification.query.filter_by(is_read=False).order_by(Notification.created_at.desc()).limit(5).all()
+    return jsonify({
+        'notifications': [{
+            'id': n.id,
+            'title': n.title,
+            'message': n.message,
+            'created_at': n.created_at.isoformat()
+        } for n in notifications]
+    })
+
 @app.route('/notifications')
 def notifications():
     """Display notifications page with all notifications"""
@@ -263,15 +286,28 @@ def notifications():
         unread_count=unread_count
     )
 
-@app.route('/mark_notification_read/<int:notification_id>')
+@app.route('/mark-notification-read/<int:notification_id>', methods=['POST'])
 def mark_notification_read(notification_id):
     """Mark a notification as read"""
-    success = NotificationService.mark_notification_read(notification_id)
+    notification = Notification.query.get_or_404(notification_id)
+    notification.is_read = True
+    db.session.commit()
+    return jsonify({'success': True})
 
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({'success': success})
+@app.route('/mark-all-notifications-read', methods=['POST'])
+def mark_all_notifications_read():
+    """Mark all notifications as read"""
+    Notification.query.update({Notification.is_read: True})
+    db.session.commit()
+    return jsonify({'success': True})
 
-    return redirect(url_for('notifications'))
+@app.route('/delete-notification/<int:notification_id>', methods=['POST'])
+def delete_notification(notification_id):
+    """Delete a notification"""
+    notification = Notification.query.get_or_404(notification_id)
+    db.session.delete(notification)
+    db.session.commit()
+    return jsonify({'success': True})
 
 @app.route('/api/search', methods=['POST'])
 def api_search():
@@ -299,16 +335,24 @@ def api_search():
 
 @app.template_filter('datetime')
 def datetime_filter(value):
-    """Format datetime for template display in US format"""
+    """Format datetime for template display in US Eastern timezone"""
     if not value:
         return "N/A"
     from datetime import datetime
+    import pytz
+    
+    eastern = pytz.timezone('America/New_York')
+    
     if isinstance(value, str):
         try:
             value = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
         except ValueError:
             return value
-    return value.strftime("%m/%d/%Y %I:%M:%S %p")
+            
+    if value.tzinfo is None:
+        value = pytz.UTC.localize(value)
+    eastern_time = value.astimezone(eastern)
+    return eastern_time.strftime("%m/%d/%Y %I:%M:%S %p")
 
 @app.template_filter('next_update')
 def next_update_filter(last_run, interval_minutes):
@@ -499,28 +543,45 @@ def check_price(item_id):
         if not scraper:
             return jsonify({'error': 'Scraper not found'}), 400
 
-        current_data = scraper.get_item_details(item.url)
-        if not current_data:
-            return jsonify({'error': 'Could not fetch item details'}), 400
+        try:
+            print(f"Fetching price for item {item.id} from {item.url}")
+            current_data = scraper.get_item_details(item.url)
+            if not current_data:
+                item.fetch_status = 'failed'
+                item.fetch_error = 'Could not fetch item details'
+                db.session.commit()
+                print(f"Failed to fetch price: No data returned")
+                return jsonify({'error': 'Could not fetch item details'}), 400
 
-        # Update last fetched time
-        item.last_fetched = datetime.utcnow()
+            # Update last fetched time and status
+            item.last_fetched = datetime.utcnow()
+            item.fetch_status = 'success'
+            item.fetch_error = None
+            print(f"Successfully fetched price: {current_data.get('price')} {item.currency}")
 
-        price_changed = False
-        current_price = float(current_data.get('price', 0))
+            price_changed = False
+            current_price = float(current_data.get('price', 0))
+        except Exception as e:
+            item.fetch_status = 'failed'
+            item.fetch_error = str(e)
+            db.session.commit()
+            print(f"Error fetching price for item {item.id}: {str(e)}")
+            return jsonify({'error': str(e)}), 500
 
-        if current_price != item.price:
+        if current_price > 0 and current_price != item.price:
             # Update item with new price
             item.previous_price = item.price
             item.price = current_price
             item.price_changed = True
             price_changed = True
 
-            # Create notifications based on user preferences
+            # Create notifications based on user preferences and valid price change
             if monitor.notification_browser:
+                # Determine if price increased or decreased
+                change_type = "increased" if current_price > item.previous_price else "decreased"
                 NotificationService.create_notification(
-                    title=f"Price Change: {item.title}",
-                    message=f"Price changed from {item.previous_price} to {item.price} {item.currency}",
+                    title=f"Price {change_type}: {item.title}",
+                    message=f"Price {change_type} from {item.previous_price} to {item.price} {item.currency}",
                     notification_type='browser',
                     url=item.url,
                     item_data={
@@ -564,6 +625,10 @@ def check_price(item_id):
 
     except Exception as e:
         logger.error(f"Error checking price: {str(e)}")
+        item.fetch_status = 'failed'
+        item.fetch_error = str(e)
+        db.session.commit()
+        print(f"Error checking price for item {item.id}: {str(e)}")
         return jsonify({'error': str(e)}), 500
     """Check current price of an item and create notification if changed"""
     item = Item.query.get_or_404(item_id)

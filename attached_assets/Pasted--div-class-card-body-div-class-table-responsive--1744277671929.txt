@@ -1,0 +1,62 @@
+<div class="card-body">
+                    
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Price</th>
+                                        <th>Marketplace</th>
+                                        <th>Last Update</th>
+                                        <th>Next Update</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    
+                                    <tr>
+                                        <td>
+                                            <a href="/monitor/item/1" class="text-decoration-none">
+                                                <div class="d-flex align-items-center">
+                                                    
+                                                    <div>
+                                                        <strong>iPhone 14 Pro 256GB 24msc GW iCentrum</strong>
+                                                        <br>
+                                                        <small class="text-muted">Wrocław</small>
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        </td>
+                                        <td>
+                                            <strong>0.0 PLN</strong>
+                                            
+                                            <br>
+                                            <small class="text-muted">Previous: 2499.0 PLN</small>
+                                            
+                                        </td>
+                                        <td>olx</td>
+                                        <td>04/10/2025 05:13:08 AM</td>
+                                        <td>04/10/2025 09:37:27 AM</td>
+                                        <td>
+                                            
+                                            <span class="badge bg-warning">Price Changed</span>
+                                            
+                                        </td>
+                                        <td>
+                                            <div class="btn-group">
+                                                <a href="https://www.olx.pl/d/oferta/iphone-14-pro-256gb-24msc-gw-icentrum-CID99-IDYqAuh.html" target="_blank" class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-box-arrow-up-right"></i>
+                                                </a>
+                                                <button onclick="removeFromMonitor('1')" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                </tbody>
+                            </table>
+                        </div>
+                    
+                </div>

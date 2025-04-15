@@ -148,6 +148,50 @@ class SimpleScraperManager:
         # Load Ogloszenia Online scraper if available
         if OgloszeniaOnlineScraper:
             self.scrapers['ogloszenia-online'] = OgloszeniaOnlineScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+
+    def get_scraper(self, marketplace: str):
+        """Get scraper instance for given marketplace"""
+        return self.scrapers.get(marketplace)
+        
+        # Load OLX scraper if available
+        if OLXScraper:
+            self.scrapers['olx'] = OLXScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+            
+        # Load OtoDom scraper if available
+        if OtoDomScraper:
+            self.scrapers['otodom'] = OtoDomScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+            
+        # Load OtoMoto scraper if available
+        if OtoMotoScraper:
+            self.scrapers['otomoto'] = OtoMotoScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+            
+        # Load Gumtree scraper if available
+        if GumtreeScraper:
+            self.scrapers['gumtree'] = GumtreeScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+            
+        # Load Sprzedajemy scraper if available
+        if SprzedajemyScraper:
+            self.scrapers['sprzedajemy'] = SprzedajemyScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+            
+        # Load Allegro scraper if available
+        if AllegroScraper:
+            self.scrapers['allegro'] = AllegroScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+            
+        # Load Vinted scraper if available
+        if VintedScraper:
+            self.scrapers['vinted'] = VintedScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+            
+        # Load Emaito scraper if available
+        if EmaitoScraper:
+            self.scrapers['emaito'] = EmaitoScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+            
+        # Load Aleja Handlowa scraper if available
+        if AlejaHandlowaScraper:
+            self.scrapers['alejahandlowa'] = AlejaHandlowaScraper(proxy_manager=self.proxy_manager if use_proxies else None)
+            
+        # Load Ogloszenia Online scraper if available
+        if OgloszeniaOnlineScraper:
+            self.scrapers['ogloszenia-online'] = OgloszeniaOnlineScraper(proxy_manager=self.proxy_manager if use_proxies else None)
     
     def search(self, marketplace: str, keywords: List[str], filters: Dict[str, Any], 
                page: int = 1, items_per_page: int = 20) -> Dict[str, Any]:

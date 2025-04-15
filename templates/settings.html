@@ -102,10 +102,11 @@
             </div>
         </div>
     </div>
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <a href="/monitor" class="btn btn-primary">Go to Monitor</a>
+        <button onclick="resetDatabase()" class="btn btn-danger">Reset Database</button>
+    </div>
 </div>
-
-<a href="/monitor" class="btn btn-primary mt-3">Go to Monitor</a>
-
 
 {% endblock %}
 
@@ -160,6 +161,27 @@
             console.error('Error:', error);
             alert('Error testing Telegram');
         });
+    }
+
+    function resetDatabase() {
+        if (confirm("Are you sure you want to reset the database? This action cannot be undone.")) {
+            fetch('/settings/reset_database', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Database reset successful!');
+                    location.reload(); // Refresh the page after successful reset
+                } else {
+                    alert('Database reset failed: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error resetting database');
+            });
+        }
     }
 </script>
 {% endblock %}
